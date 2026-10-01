@@ -1,0 +1,17 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.34,<1
+pydantic>=2,<3
+pydantic-settings>=2,<3
+pyyaml>=6,<7
+structlog>=24,<26
+streamlit>=1.40,<2
+requests>=2,<3
+python-multipart>=0.0.9,<1
+PyMuPDF>=1.24,<2
+pytesseract>=0.3,<1
+Pillow>=10,<13
+fastembed>=0.5,<1       # optional backend: embedding.backend: fastembed (bge-small)
+model2vec>=0.6,<1       # default embeddings: static, fast on CPU
+chromadb>=1.0,<2
+openai>=1.50,<3
+langfuse>=4,<5          # optional at run time: tracing is off without LANGFUSE_* keys

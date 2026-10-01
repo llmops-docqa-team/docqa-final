@@ -1,0 +1,135 @@
+# Tunables. Env vars (GROQ_API_KEY, GEMINI_API_KEY, LLM_BACKEND, LLM_BASE_URL, LLM_MODEL, OLLAMA_BASE_URL,
+# LANGFUSE_*) override where noted.
+llm:
+  backend: groq                               # groq | ollama (the primary); env LLM_BACKEND overrides
+  base_url: https://api.groq.com/openai/v1   # env LLM_BASE_URL overrides
+  answer_model: openai/gpt-oss-120b
+  router_model: openai/gpt-oss-20b
+  rewrite_model: openai/gpt-oss-20b           # query enhancer (spelling, company pinned); own free-tier TPM
+  reasoning_effort: low
+  timeout_seconds: 20
+  judge_model: gemini-2.5-flash              # eval only, needs GEMINI_API_KEY
+  judge_base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  judge_reasoning_effort: none                # Gemini "thinking" tokens eat max_tokens and truncate the verdict
+  max_retries: 2                              # extra attempts on 429 / 5xx / timeout
+  retry_backoff_seconds: 0.5
+  retry_max_wait_seconds: 10                  # longer Retry-After => fail fast (Groq free TPM waits are ~6 s)
+  dev_cache: false                            # dev/eval only; env DOCQA_LLM_CACHE=1 also enables it
+  cache_dir: data/llm_cache
+  ollama:                                     # local server (OpenAI-compatible); env OLLAMA_BASE_URL overrides base_url
+    base_url: http://localhost:11434/v1       # from the Docker container: http://host.docker.internal:11434/v1
+    answer_model: gpt-oss:20b                 # `ollama pull gpt-oss:20b` (16 GB+), or `ollama pull llama3.2:3b` and set both
+    router_model: gpt-oss:20b
+    timeout_seconds: 120                      # a local model on CPU is slow, and the first call loads it
+  fallback_enabled: false                     # groq down (timeouts / 429s after the retries) -> repeat the call on Ollama; env OLLAMA_BASE_URL turns it on
+  fallback_cooldown_seconds: 30               # after a fallback, skip groq this long so the next requests do not each wait out the retries
+
+prompts:                                      # active versions (files in prompts/)
+  router: router_v1
+  answer_doc: answer_doc_v1
+  answer_general: answer_general_v1
+  judge: judge_v1
+  rewrite: rewrite_v1
+
+embedding:
+  # Static embeddings: ~2,000x faster than bge-small on a CPU (a 427-page report embeds in under a second).
+  # For bge-small instead: backend: fastembed, model: BAAI/bge-small-en-v1.5, batch_size: 8,
+  #   query_prefix: "Represent this sentence for searching relevant passages: "
+  # Changing backend or model needs a re-index: delete data/ (or run scripts/reingest.py) and re-upload.
+  backend: model2vec
+  model: minishlab/potion-retrieval-32M
+  batch_size: 1024
+  query_prefix: ""                            # bge needs an instruction prefix on queries; potion does not
+
+chunking:
+  size_tokens: 400
+  overlap_tokens: 60
+
+retrieval:
+  fetch_k: 8
+  top_k: 8                                    # passages the model sees (5 cut labelled figures on long reports)
+  theta: 0.25                                 # score gate, on the static-embedding scale: the lowest top score
+                                              # of an answerable EIG question is 0.37 (bge-small: 0.72, theta 0.5)
+  mode: hybrid                                # dense | bm25 | hybrid (BM25 + dense, weighted RRF)
+  bm25_weight: 20.0                           # dense is 1.0. Static vectors are weaker at meaning, so keyword
+                                              # search leads: EIG eval R@5 98.6%, MRR 0.819 (bge-small at 3.0:
+                                              # 98.6%, 0.781). With backend: fastembed, use 3.0 and theta 0.5.
+  pool: 50
+  rrf_k: 60
+  bm25_keep_top: 1                            # keyword search's #1 always reaches the model (0 = off)
+  table_siblings: true                        # a piece of a split table brings the rest of that table
+
+answer:
+  max_tokens: 1500                            # reasoning tokens count too
+  snippet_chars: 300
+  closest_pages: 3                            # shown on an abstention
+  fallback_passages: 3                        # shown when the LLM is unavailable
+  context_max_tokens: 3500                    # cap on passages sent to the model: router + answer share Groq's 8,000 TPM
+
+query:
+  max_question_chars: 500                     # longer questions get a 422
+  router_max_tokens: 600                      # reasoning tokens count too
+  general_max_tokens: 1000
+  router_max_docs: 30                         # document titles listed to the router
+  doc_title_chars: 80
+
+tracing:                                      # Langfuse; on only when LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set (step 11)
+  capture_content: false                      # true: traces also hold the question, the answer and cited snippets (sent to Langfuse)
+
+api:
+  debug_endpoints: false                      # /debug/*; env DOCQA_DEBUG=1 also enables them
+
+observability:                                # request log + metrics page (step 08)
+  min_requests_for_indicator: 5               # fewer requests than this: show the number, no colour
+  log_content: false                          # opt-in: keep question/answer/source text in request_content (for the online judge)
+  pricing_per_mtok:                           # USD per 1M tokens, list-price equivalent (we use a free tier). Verify.
+    openai/gpt-oss-120b: {input: 0.15, output: 0.60}
+    openai/gpt-oss-20b: {input: 0.075, output: 0.30}
+    default: {input: 0.15, output: 0.60}      # any other model id
+  thresholds:                                 # colour indicators on the Metrics page; no alerting
+    p95_total_ms: {amber: 4000, red: 6000}
+    error_rate: {amber: 0.02, red: 0.05}
+    abstention_rate: {amber: 0.40, red: 0.70}
+    citation_invalid_rate: {amber: 0.05, red: 0.15}
+    number_check_fail_rate: {amber: 0.10, red: 0.25}
+    router_fallback_rate: {amber: 0.02, red: 0.10}
+    thumbs_down_share: {amber: 0.20, red: 0.40}
+    median_top_score: {amber: 0.55, red: 0.45, lower_is_worse: true}   # drift: falling = off-topic questions
+    route_mix_shift: {amber: 0.20, red: 0.40}                          # this week vs last week (total variation)
+
+eval:                                         # python -m eval.run (step 09)
+  tpm_budget: 6500                            # tokens/min per model the runner allows itself (Groq free cap is 8,000)
+  judge_max_calls: 10                         # live judge calls per eval run (free tier ~20/day); 0 = no limit; --judge-limit overrides
+  judge_min_interval_seconds: 6.5             # between live judge calls (Gemini free tier ~10 requests/min)
+  judge_max_tokens: 1500
+  judge_rate_limit_wait_seconds: 30           # a 429 from the judge: wait this long, then retry
+  judge_rate_limit_retries: 3
+  judge_source_chars: 3000                    # each cited source is cut to this many characters for the judge
+
+upload:
+  max_mb: 25
+  max_pages: 500
+
+ingestion:
+  upsert_every_pages: 20                      # also the PARTIAL (queryable) granularity
+  max_failed_page_ratio: 0.5                  # FAILED if more than this fraction of pages is unreadable
+
+ocr:
+  min_chars: 120                              # page is scanned if text < min_chars ...
+  min_image_area_ratio: 0.6                   # ... and image area >= this fraction
+  dpi: 200
+  language: eng
+
+parsing:
+  repeat_line_ratio: 0.5                      # header/footer = edge line on > this fraction of pages
+  repeat_min_pages: 3
+  repeat_edge_lines: 3                        # only first/last N lines of a page are candidates
+  table_min_rows: 2
+  table_min_cols: 2
+
+paths:
+  data_dir: data
+  sqlite_path: data/docqa.sqlite
+  upload_dir: data/uploads
+  chroma_dir: data/chroma
+  model_cache_dir: data/models               # fastembed model files (persisted with ./data)
