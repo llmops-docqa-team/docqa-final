@@ -1,0 +1,12 @@
+# Maps doc keys used in eval/questions.jsonl (gold_pages[].doc) to files.
+# The PDFs themselves are NOT committed; keep them private and check licences first.
+docs:
+  report_a:
+    filename: EIG AR FY25.pdf
+    note: Ellenbarrie Industrial Gases FY25 annual report, text layer + financial tables (text + table slices).
+  report_b:
+    filename: TODO_report_b.pdf
+    note: Scanned report, or 40-60 pages rasterised into an image-only PDF (scanned slice).
+  demo_scan:
+    filename: TODO_demo_scan.pdf
+    note: Tiny 10-15 page scanned PDF for the live-upload demo. Not used for scoring.
