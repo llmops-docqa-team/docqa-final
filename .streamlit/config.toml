@@ -1,0 +1,12 @@
+# Streamlit reads this from the directory it is started in (the project root, and /srv in Docker).
+# A warm, comfy dark theme with one honey accent; the chat styling on top of it lives in ui/components.py.
+[theme]
+base = "dark"
+primaryColor = "#E9B872"
+backgroundColor = "#1C1A17"
+secondaryBackgroundColor = "#24211D"
+textColor = "#EFE8DF"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"    # hide the developer menu items in the top-right corner
