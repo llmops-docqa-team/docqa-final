@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- the binder lying open: left and right covers, angled slightly away from the spine -->
+  <path d="M23 16 L4 18.5 Q3 18.7 3 19.7 V42.3 Q3 43.3 4 43.1 L23 46 Z" fill="#2B2723" stroke="#EFE8DF"
+        stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M25 16 L44 18.5 Q45 18.7 45 19.7 V42.3 Q45 43.3 44 43.1 L25 46 Z" fill="#2B2723" stroke="#EFE8DF"
+        stroke-width="1.6" stroke-linejoin="round"/>
+  <!-- pages lying inside, on both sides of the rings -->
+  <path d="M22 18.5 L7 20.4 V40.6 L22 43 Z" fill="#463B31" stroke="#A39888" stroke-width="1"/>
+  <path d="M26 18.5 L41 20.4 V40.6 L26 43 Z" fill="#3B3229" stroke="#8C8174" stroke-width="1"/>
+  <path d="M26 20 L40 21.8 V39.6 L26 41.8 Z" fill="#51453A" stroke="#C2B7A8" stroke-width="1"/>
+  <!-- text lines on the pages lying in the binder (quieter than the chosen page) -->
+  <g fill="#8C8174">
+    <rect x="9" y="23.5" width="10.5" height="1.5" rx="0.75"/>
+    <rect x="9" y="27" width="8.5" height="1.5" rx="0.75"/>
+    <rect x="9" y="30.5" width="10.5" height="1.5" rx="0.75"/>
+    <rect x="9" y="34" width="7" height="1.5" rx="0.75"/>
+    <rect x="9" y="37.5" width="9.5" height="1.5" rx="0.75"/>
+  </g>
+  <g fill="#A39888">
+    <rect x="28.5" y="24" width="9" height="1.5" rx="0.75"/>
+    <rect x="28.5" y="27.5" width="10" height="1.5" rx="0.75"/>
+    <rect x="28.5" y="31" width="7.5" height="1.5" rx="0.75"/>
+    <rect x="28.5" y="34.5" width="10" height="1.5" rx="0.75"/>
+    <rect x="28.5" y="38" width="6" height="1.5" rx="0.75"/>
+  </g>
+  <!-- the chosen page, lifted up from inside and peeking out over the top, with lines on it -->
+  <g transform="rotate(9 31 24)">
+    <rect x="25" y="2" width="17" height="24" rx="2" fill="#E9B872" stroke="#F6DDB4" stroke-width="0.9"/>
+    <rect x="28" y="6.2" width="11" height="1.9" rx="0.95" fill="#2B2723"/>
+    <rect x="28" y="10.2" width="9" height="1.9" rx="0.95" fill="#2B2723"/>
+    <rect x="28" y="14.2" width="11" height="1.9" rx="0.95" fill="#2B2723"/>
+    <rect x="28" y="18.2" width="6" height="1.9" rx="0.95" fill="#2B2723"/>
+  </g>
+  <!-- spine and three rings holding the pages -->
+  <path d="M24 16.5 V45.5" stroke="#EFE8DF" stroke-width="1.2" opacity="0.6"/>
+  <g fill="none" stroke="#E9B872" stroke-width="1.7" stroke-linecap="round">
+    <path d="M20.5 24 a3.5 2.6 0 0 1 7 0"/>
+    <path d="M20.5 31 a3.5 2.6 0 0 1 7 0"/>
+    <path d="M20.5 38 a3.5 2.6 0 0 1 7 0"/>
+  </g>
+</svg>
