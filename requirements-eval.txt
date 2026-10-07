@@ -1,0 +1,4 @@
+# Optional: only needed for `python -m eval.retrieval_eval --mlflow` (CI and the unit tests do without).
+-r requirements.txt
+# Skinny = tracking client + local file store, without the server/SQL stack.
+mlflow-skinny>=3,<4
