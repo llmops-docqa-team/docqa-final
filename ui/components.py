@@ -286,7 +286,7 @@ def composer(companies: list[dict]) -> str | None:
     names = [c["name"] for c in companies]
     company = picked_company(companies)
     st.session_state.company_widget = company  # redraw the widget with the remembered pick
-    with st.bottom:
+    with getattr(st, "bottom", None) or st._bottom:  # st.bottom is public only in newer Streamlit
         if companies:
             with st.container(key="composer_bar", horizontal=True, vertical_alignment="center"):
                 st.selectbox(
