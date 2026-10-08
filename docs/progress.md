@@ -680,3 +680,10 @@ T010: finance-cost table not in the top 50 -> **#1**.
 **Caveats**: the boost rules were tuned on 10 trap questions, four of which mention EBITDA/PBT/finance cost, so the trap gain is partly in-sample. The main set has few "explain" questions. The small main-set MRR dip (-0.012) comes from the synonyms in enhanced mode and from the boost on a couple of raw questions; Recall@5 does not move. Not run: the paid `/query` re-ask of T009/T010.
 
 **Try it**: `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl --enhance` (stop the API first). Switch the boost off with `retrieval.topic_boost.enabled: false`. **Tests**: `test_retrieval.py` (+3: heading moves up with the flag on, unchanged off, word-start matching, stable/depth-limited boost), `test_catalog.py` (+1: aliases only when the phrase is asked); with `test_bm25`, `test_retrieval_eval`, `test_query_api`, `test_answer_document`: 145 passed. `ruff check` clean on changed files.
+
+## Step 04 re-check (2026-10-08)
+
+Prompt 04 was run again on this branch. Everything it asks for already exists (retriever, `/debug/retrieve`, `eval.retrieval_eval` with MLflow flag, fixture corpus + `eval/baselines/ci_retrieval.json`, CI gate), so no code was rebuilt. Checked: `test_retrieval.py` + `test_retrieval_eval.py` 44 passed, `ruff check` clean, `python -m eval.retrieval_eval --fixture --check` PASS (R@5 98.0 vs 100.0 baseline, MRR 0.676 vs 0.699).
+- **Fixed: stale CI model cache.** `ci.yml` cached `data/models` under a fastembed key, but the default backend is now model2vec, which downloads to `~/.cache/huggingface`, so the cache did nothing. It now caches both paths under a new key. Not yet confirmed on GitHub Actions itself.
+- On Windows a failing ingest can crash the logger with `UnicodeEncodeError` (cp1252 console) and hide the real error; `PYTHONUTF8=1` shows it. Left as is.
+- `README.md` line 119 still says the embeddings are bge-small; the default is now `minishlab/potion-retrieval-32M`.
