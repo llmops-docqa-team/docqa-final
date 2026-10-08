@@ -180,11 +180,11 @@ def test_answer_text_with_dollar_signs_is_not_swallowed_as_latex(monkeypatch):
 
 
 def test_api_down_gives_friendly_messages_not_a_traceback(monkeypatch):
-    down = ApiError("Can't reach the DocQA service at http://x. Is it running?", unreachable=True)
+    down = ApiError("Can't reach the FinChat service at http://x. Is it running?", unreachable=True)
     at = run(monkeypatch, FakeClient(error=down))
-    assert "Can't reach the DocQA service" in texts(at.sidebar.warning)
+    assert "Can't reach the FinChat service" in texts(at.sidebar.warning)
     at = ask(at)
-    assert "Can't reach the DocQA service" in texts(at.error)
+    assert "Can't reach the FinChat service" in texts(at.error)
 
 
 def test_the_real_client_against_a_dead_port_does_not_crash_the_app(monkeypatch):

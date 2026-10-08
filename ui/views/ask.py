@@ -79,7 +79,7 @@ if not history:
         )
         st.markdown(
             '<p class="dq-promise">Answers come only from the PDFs you upload, with the page each one came '
-            "from. If a report doesn't say, DocQA tells you instead of guessing.</p>",
+            "from. If a report doesn't say, FinChat tells you instead of guessing.</p>",
             unsafe_allow_html=True,
         )
     with st.container(key="chips", horizontal=True):

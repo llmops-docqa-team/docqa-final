@@ -48,7 +48,7 @@ class LLMConfig(BaseModel):
     retry_backoff_seconds: float = 0.5    # doubles each retry
     retry_max_wait_seconds: float = 10.0  # a Retry-After longer than this fails fast instead of waiting
     # Dev/eval only: disk cache of responses keyed by hash(model, messages, params). Off unless the
-    # DOCQA_LLM_CACHE env var (or this flag) turns it on; DOCQA_ENV=prod forces it off.
+    # FINCHAT_LLM_CACHE env var (or this flag) turns it on; FINCHAT_ENV=prod forces it off.
     dev_cache: bool = False
     cache_dir: str = "data/llm_cache"
 
@@ -141,7 +141,7 @@ class TracingConfig(BaseModel):
 
 class ApiConfig(BaseModel):
     # /debug/* endpoints (no auth, and /debug/answer_doc spends LLM quota). Off unless this flag or the
-    # DOCQA_DEBUG env var turns them on.
+    # FINCHAT_DEBUG env var turns them on.
     debug_endpoints: bool = False
 
 
@@ -240,7 +240,7 @@ class ParsingConfig(BaseModel):
 
 class PathsConfig(BaseModel):
     data_dir: str = "data"
-    sqlite_path: str = "data/docqa.sqlite"
+    sqlite_path: str = "data/finchat.sqlite"
     upload_dir: str = "data/uploads"
     chroma_dir: str = "data/chroma"
     model_cache_dir: str = "data/models"
@@ -294,7 +294,7 @@ class Settings(BaseModel):
 
 
 def load_settings(path: str | os.PathLike | None = None) -> Settings:
-    cfg_path = Path(path or os.environ.get("DOCQA_CONFIG") or ROOT / "config.yaml")
+    cfg_path = Path(path or os.environ.get("FINCHAT_CONFIG") or ROOT / "config.yaml")
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     settings = Settings(**data)
     llm = settings.llm
@@ -316,7 +316,7 @@ def load_settings(path: str | os.PathLike | None = None) -> Settings:
         settings.llm.base_url = os.environ["LLM_BASE_URL"]
     if os.environ.get("LLM_MODEL"):
         settings.llm.answer_model = os.environ["LLM_MODEL"]
-    if os.environ.get("DOCQA_DEBUG", "").lower() in ("1", "true", "yes", "on"):
+    if os.environ.get("FINCHAT_DEBUG", "").lower() in ("1", "true", "yes", "on"):
         settings.api.debug_endpoints = True
     settings.groq_api_key = os.environ.get("GROQ_API_KEY") or None
     settings.gemini_api_key = os.environ.get("GEMINI_API_KEY") or None

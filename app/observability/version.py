@@ -1,4 +1,4 @@
-"""Which code produced a request: `DOCQA_GIT_SHA` (set in Docker, where there is no .git), else the short
+"""Which code produced a request: `FINCHAT_GIT_SHA` (set in Docker, where there is no .git), else the short
 commit hash of the checkout, else "unknown". Looked up once per process."""
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from app.config import ROOT
 
 @lru_cache(maxsize=1)
 def get_app_version() -> str:
-    env = os.environ.get("DOCQA_GIT_SHA", "").strip()
+    env = os.environ.get("FINCHAT_GIT_SHA", "").strip()
     if env:
         return env[:40]
     try:

@@ -78,7 +78,7 @@ def create_app(
             worker.stop()
             get_tracer().flush()
 
-    app = FastAPI(title="DocQA", lifespan=lifespan)
+    app = FastAPI(title="FinChat", lifespan=lifespan)
     app.add_middleware(RequestIDMiddleware)
     app.include_router(documents_router)
     app.include_router(catalog_router)

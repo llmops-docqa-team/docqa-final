@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📊 DocQA
+# 📊 FinChat
 
 ### A research agent for financial analysts, built on company reports.
 
@@ -10,7 +10,7 @@ Load a company's annual reports. Ask what an analyst would ask. Get a cited, che
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
 ![Groq](https://img.shields.io/badge/LLM-gpt--oss%20on%20Groq-F55036)
-![Tests](https://img.shields.io/badge/tests-784%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-785%20passing-2ea44f)
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 
 </div>
@@ -21,7 +21,7 @@ Load a company's annual reports. Ask what an analyst would ask. Get a cited, che
 
 An equity or credit analyst covering a company spends hours in its annual reports: 300 to 450 pages each, one per year, full of tables that look almost identical from year to year. Finding a figure, checking it against last year, working out a margin and understanding *why* it moved means a lot of Ctrl-F and a lot of re-reading. General chatbots are faster, but they guess, and a confident wrong number is worse than no answer.
 
-**DocQA is a financial research agent for analysts.** It reads a company's reports, works out which report and which year a question is about, finds the evidence, writes the answer from that evidence alone, checks every figure against the source, and shows the exact row on the PDF page. When the reports don't contain the answer, it says so and points to the closest pages instead of guessing.
+**FinChat is a financial research agent for analysts.** It reads a company's reports, works out which report and which year a question is about, finds the evidence, writes the answer from that evidence alone, checks every figure against the source, and shows the exact row on the PDF page. When the reports don't contain the answer, it says so and points to the closest pages instead of guessing.
 
 > **Business objective:** give an analyst a correct, verifiable answer from a company's own reports in seconds instead of minutes of manual searching, and never present an unsupported figure as coming from those reports.
 
@@ -31,7 +31,7 @@ It is a college team project for the LLMOps course: a small, fully measured syst
 
 ## 🧑‍💼 What an analyst can do with it
 
-| Ask… | Example | What DocQA does |
+| Ask… | Example | What FinChat does |
 |---|---|---|
 | 🔢 **Look up a figure** | *"What was standalone revenue from operations in FY2025?"* | Finds the statement row, quotes the figure with its unit, and cites the page. |
 | 📅 **Compare years** | *"How did EBITDA margin change from FY25 to FY26?"* | Narrows the search to the right years' reports and answers from both. |
@@ -254,7 +254,7 @@ streamlit run ui/app.py
 ### Run the tests
 
 ```bash
-python -m pytest -q     # 784 tests, about 2 minutes; all LLM calls are mocked
+python -m pytest -q     # 785 tests, about 2 minutes; all LLM calls are mocked
 ruff check .
 ```
 
@@ -274,9 +274,9 @@ All tuning settings live in one commented file, `config.yaml`. Secrets live only
 | `OLLAMA_BASE_URL` | Setting it turns on the automatic backup | — |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | Tracing, on only when the keys are set | — |
 | `TESSERACT_CMD` | Path to Tesseract, if it is not on `PATH` | — |
-| `DOCQA_LLM_CACHE` | `1` caches LLM replies during development | — |
-| `DOCQA_DEBUG` | `1` turns on the debug endpoints | — |
-| `DOCQA_API_URL` | Where the UI finds the API | — |
+| `FINCHAT_LLM_CACHE` | `1` caches LLM replies during development | — |
+| `FINCHAT_DEBUG` | `1` turns on the debug endpoints | — |
+| `FINCHAT_API_URL` | Where the UI finds the API | — |
 
 > 🔒 `.env` is git-ignored. Docker Compose and the evaluation tools read it. The API started by hand does **not**, so export the variables yourself.
 
@@ -325,7 +325,7 @@ All tuning settings live in one commented file, `config.yaml`. Secrets live only
 ## 🗂️ Project structure
 
 ```
-docqa/
+finchat/
 ├── app/                    # FastAPI backend
 │   ├── main.py             #   app startup and wiring
 │   ├── config.py           #   typed settings
@@ -342,7 +342,7 @@ docqa/
 ├── prompts/                # versioned prompts (router, rewrite, answers, grader)
 ├── eval/                   # labelled questions, evaluation runner, grader, CI fixture
 ├── scripts/                # load test, re-index, online grading, benchmarks
-├── tests/                  # 784 tests
+├── tests/                  # 785 tests
 ├── docs/                   # design, decisions, build log, build prompts
 ├── config.yaml             # all tunable settings
 └── docker-compose.yml

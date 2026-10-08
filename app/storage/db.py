@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS request_content (
 
 
 # Columns added after step 00. Applied to existing databases by init_db (create-if-not-exists only
-# covers new tables), so a data/docqa.sqlite from an earlier step keeps working.
+# covers new tables), so a data/finchat.sqlite from an earlier step keeps working.
 ADDED_DOCUMENT_COLUMNS = {
     "embedding_model": "TEXT",
     "ingest_version": "INTEGER",
@@ -85,7 +85,7 @@ ADDED_DOCUMENT_COLUMNS = {
 
 # Step 08 additions to `requests` (same migration trick as above).
 ADDED_REQUEST_COLUMNS = {
-    "app_version": "TEXT",         # git SHA (or DOCQA_GIT_SHA) of the running code
+    "app_version": "TEXT",         # git SHA (or FINCHAT_GIT_SHA) of the running code
     "router_fallback": "TEXT",     # why the router fell back to DOCUMENT (bad_json | llm_unavailable)
     "answer_chars": "INTEGER",     # length of the answer text(s) shown; 0 when nothing was answered
     "cited_chunks": "TEXT",        # JSON list of chunk ids cited (ids only, never document text)
@@ -97,8 +97,20 @@ ADDED_REQUEST_COLUMNS = {
 }
 
 
+LEGACY_DB_NAMES = {"finchat.sqlite": "docqa.sqlite"}  # the project was called DocQA before
+
+
+def adopt_legacy_db(path: Path) -> None:
+    """Rename a database left under the project's old name, so documents indexed before the rename stay."""
+    old = path.with_name(LEGACY_DB_NAMES.get(path.name, path.name))
+    if old != path and not path.exists() and old.exists():
+        old.rename(path)
+
+
 def connect(path: str | Path) -> sqlite3.Connection:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    adopt_legacy_db(path)
     conn = sqlite3.connect(str(path), check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn

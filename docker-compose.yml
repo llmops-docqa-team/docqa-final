@@ -6,7 +6,7 @@ services:
       - path: .env
         required: false
     environment:
-      DOCQA_GIT_SHA: ${GIT_SHA:-}   # logged on every request; `GIT_SHA=$(git rev-parse --short HEAD) docker compose up`
+      FINCHAT_GIT_SHA: ${GIT_SHA:-}   # logged on every request; `GIT_SHA=$(git rev-parse --short HEAD) docker compose up`
     extra_hosts: ["host.docker.internal:host-gateway"]   # reach an Ollama server on the host (Linux needs this)
     ports: ["8000:8000"]
     volumes: ["./data:/srv/data"]
@@ -19,7 +19,7 @@ services:
     build: .
     command: streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0
     environment:
-      DOCQA_API_URL: http://api:8000
+      FINCHAT_API_URL: http://api:8000
     ports: ["8501:8501"]
     volumes: ["./data:/srv/data:ro"]   # the Metrics page reads the SQLite request log directly
     depends_on:

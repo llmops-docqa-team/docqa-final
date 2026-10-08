@@ -1,6 +1,6 @@
 """Streamlit entry point: page config, the documents sidebar, and navigation between the pages in `ui/views/`.
 
-Run: `streamlit run ui/app.py` (DOCQA_API_URL defaults to http://localhost:8000).
+Run: `streamlit run ui/app.py` (FINCHAT_API_URL defaults to http://localhost:8000).
 """
 
 import sys
@@ -13,7 +13,7 @@ import streamlit as st  # noqa: E402
 
 from ui import components  # noqa: E402
 
-st.set_page_config(page_title="DocQA", page_icon="📄", layout="wide")
+st.set_page_config(page_title="FinChat", page_icon="📄", layout="wide")
 components.inject_style()
 
 components.sidebar(components.get_client())

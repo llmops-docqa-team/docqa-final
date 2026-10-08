@@ -24,7 +24,7 @@ T004's "what drove the change" also got a notes page instead of the Board report
 
 ## Step 1: diagnose before changing (free, no LLM)
 
-With the API running and `DOCQA_DEBUG=1`, call `POST /debug/retrieve` for T009, T010 and T004 (both the raw
+With the API running and `FINCHAT_DEBUG=1`, call `POST /debug/retrieve` for T009, T010 and T004 (both the raw
 question and the enhancer's `search_query`). Or stop the API and run
 `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl`, which lists misses and top pages
 in `eval/results/retrieval_latest.json`. Find out *why* the right chunk loses: where does it rank in BM25 and in

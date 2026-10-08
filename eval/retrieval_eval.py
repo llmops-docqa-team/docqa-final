@@ -353,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         rows = load_rows(questions, docs)
         if args.fixture:
-            workdir = Path(tempfile.mkdtemp(prefix="docqa-ci-eval-"))
+            workdir = Path(tempfile.mkdtemp(prefix="finchat-ci-eval-"))
             print(f"building fixture index in {workdir} (embedding ~35 pages; first run downloads the model)")
             retriever, store, docs_map = build_fixture_index(workdir, settings, embedder)
         else:

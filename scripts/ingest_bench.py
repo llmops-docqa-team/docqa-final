@@ -56,7 +56,7 @@ def main() -> int:
     args = ap.parse_args()
 
     settings = load_settings()
-    work = Path(tempfile.mkdtemp(prefix="docqa-bench-"))
+    work = Path(tempfile.mkdtemp(prefix="finchat-bench-"))
     settings.paths.sqlite_path = str(work / "db.sqlite")
     settings.paths.upload_dir = str(work / "uploads")
     settings.paths.chroma_dir = str(work / "chroma")

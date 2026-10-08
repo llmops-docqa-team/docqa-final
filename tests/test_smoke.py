@@ -42,6 +42,24 @@ def test_db_tables_created(tmp_path):
     assert {"documents", "requests"} <= names
 
 
+def test_db_under_old_project_name_is_adopted(tmp_path):
+    old = tmp_path / "docqa.sqlite"
+    init_db(old)
+    conn = sqlite3.connect(old)
+    conn.execute("insert into requests (trace_id) values ('kept')")
+    conn.commit()
+    conn.close()  # Windows cannot rename a file that is still open
+    new = tmp_path / "finchat.sqlite"
+    init_db(new)
+    assert new.exists() and not old.exists()
+    conn = sqlite3.connect(new)
+    rows = conn.execute("select trace_id from requests").fetchall()
+    conn.close()
+    assert rows == [("kept",)]
+    init_db(old)  # a fresh old-name file next to the new one is left alone
+    assert new.exists() and old.exists()
+
+
 def test_health_and_request_id(tmp_path, monkeypatch):
     monkeypatch.setattr("app.main.get_settings", lambda: _tmp_settings(tmp_path))
     with TestClient(create_app()) as client:

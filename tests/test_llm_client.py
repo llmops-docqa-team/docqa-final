@@ -192,19 +192,19 @@ def test_corrupt_cache_file_is_a_miss(cfg, tmp_path):
 def test_cache_is_off_by_default_and_prod_forces_it_off():
     assert cache_enabled(False, {}) is False
     assert cache_enabled(True, {}) is True
-    assert cache_enabled(False, {"DOCQA_LLM_CACHE": "1"}) is True
-    assert cache_enabled(True, {"DOCQA_LLM_CACHE": "0"}) is False
-    assert cache_enabled(True, {"DOCQA_LLM_CACHE": "1", "DOCQA_ENV": "prod"}) is False
+    assert cache_enabled(False, {"FINCHAT_LLM_CACHE": "1"}) is True
+    assert cache_enabled(True, {"FINCHAT_LLM_CACHE": "0"}) is False
+    assert cache_enabled(True, {"FINCHAT_LLM_CACHE": "1", "FINCHAT_ENV": "prod"}) is False
 
 
 def test_client_from_settings_respects_the_env_switch(cfg, monkeypatch, tmp_path):
     cfg.llm.cache_dir = str(tmp_path / "c")
-    monkeypatch.delenv("DOCQA_LLM_CACHE", raising=False)
-    monkeypatch.delenv("DOCQA_ENV", raising=False)
+    monkeypatch.delenv("FINCHAT_LLM_CACHE", raising=False)
+    monkeypatch.delenv("FINCHAT_ENV", raising=False)
     assert llm_client_from_settings(cfg).cache is None
-    monkeypatch.setenv("DOCQA_LLM_CACHE", "1")
+    monkeypatch.setenv("FINCHAT_LLM_CACHE", "1")
     assert llm_client_from_settings(cfg).cache is not None
-    monkeypatch.setenv("DOCQA_ENV", "prod")
+    monkeypatch.setenv("FINCHAT_ENV", "prod")
     assert llm_client_from_settings(cfg).cache is None
 
 

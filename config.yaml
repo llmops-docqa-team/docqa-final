@@ -14,7 +14,7 @@ llm:
   max_retries: 2                              # extra attempts on 429 / 5xx / timeout
   retry_backoff_seconds: 0.5
   retry_max_wait_seconds: 10                  # longer Retry-After => fail fast (Groq free TPM waits are ~6 s)
-  dev_cache: false                            # dev/eval only; env DOCQA_LLM_CACHE=1 also enables it
+  dev_cache: false                            # dev/eval only; env FINCHAT_LLM_CACHE=1 also enables it
   cache_dir: data/llm_cache
   ollama:                                     # local server (OpenAI-compatible); env OLLAMA_BASE_URL overrides base_url
     base_url: http://localhost:11434/v1       # from the Docker container: http://host.docker.internal:11434/v1
@@ -87,7 +87,7 @@ tracing:                                      # Langfuse; on only when LANGFUSE_
   capture_content: false                      # true: traces also hold the question, the answer and cited snippets (sent to Langfuse)
 
 api:
-  debug_endpoints: false                      # /debug/*; env DOCQA_DEBUG=1 also enables them
+  debug_endpoints: false                      # /debug/*; env FINCHAT_DEBUG=1 also enables them
 
 observability:                                # request log + metrics page (step 08)
   min_requests_for_indicator: 5               # fewer requests than this: show the number, no colour
@@ -139,7 +139,7 @@ parsing:
 
 paths:
   data_dir: data
-  sqlite_path: data/docqa.sqlite
+  sqlite_path: data/finchat.sqlite
   upload_dir: data/uploads
   chroma_dir: data/chroma
   model_cache_dir: data/models               # fastembed model files (persisted with ./data)

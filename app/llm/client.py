@@ -2,8 +2,8 @@
 
 - Timeouts and a small retry loop (429 / 5xx / timeout / connection errors) with exponential backoff.
 - Token usage is returned to the caller, so each stage can log it.
-- A dev/eval-only disk cache keyed by hash(model, messages, params). It is OFF unless `DOCQA_LLM_CACHE=1`
-  (or `llm.dev_cache: true`) and is forced off when `DOCQA_ENV=prod`.
+- A dev/eval-only disk cache keyed by hash(model, messages, params). It is OFF unless `FINCHAT_LLM_CACHE=1`
+  (or `llm.dev_cache: true`) and is forced off when `FINCHAT_ENV=prod`.
 - Every failure the caller should treat as "service unavailable" is raised as `LLMError`.
 - Optional fallback (`FallbackBackend`, built from config by `llm_client_from_settings`): when the primary
   backend is unavailable for good (timeouts, 429s, 5xx or connection errors, after the retries above) the call
@@ -112,9 +112,9 @@ class DiskCache:
 
 def cache_enabled(dev_cache: bool, env: dict[str, str] | None = None) -> bool:
     env = os.environ if env is None else env
-    if env.get("DOCQA_ENV", "").lower() in ("prod", "production"):
+    if env.get("FINCHAT_ENV", "").lower() in ("prod", "production"):
         return False
-    flag = env.get("DOCQA_LLM_CACHE", "")
+    flag = env.get("FINCHAT_LLM_CACHE", "")
     if flag:
         return flag.lower() in ("1", "true", "yes", "on")
     return dev_cache

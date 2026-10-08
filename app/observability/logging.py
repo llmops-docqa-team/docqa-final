@@ -22,5 +22,5 @@ def configure_logging(level: str = "INFO") -> None:
     )
 
 
-def get_logger(name: str = "docqa"):
+def get_logger(name: str = "finchat"):
     return structlog.get_logger(name)

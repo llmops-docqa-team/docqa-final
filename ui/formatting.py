@@ -13,7 +13,7 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-MAX_QUESTION_CHARS = _env_int("DOCQA_MAX_QUESTION_CHARS", 500)
+MAX_QUESTION_CHARS = _env_int("FINCHAT_MAX_QUESTION_CHARS", 500)
 
 DOCUMENT_TITLE = ":material/description: From your documents"
 GENERAL_TITLE = ":material/public: General knowledge"

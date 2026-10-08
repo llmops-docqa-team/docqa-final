@@ -196,7 +196,7 @@ def test_upload_sends_the_file_as_a_pdf():
 
 
 def test_base_url_comes_from_the_environment(monkeypatch):
-    monkeypatch.setenv("DOCQA_API_URL", "http://example:9/")
+    monkeypatch.setenv("FINCHAT_API_URL", "http://example:9/")
     assert ApiClient().base_url == "http://example:9"
 
 
@@ -205,7 +205,7 @@ def test_api_down_is_a_friendly_error_not_a_traceback():
     with pytest.raises(ApiError) as e:
         c.ask("hi")
     assert e.value.unreachable and e.value.status is None
-    assert "Can't reach the DocQA service at http://api:8000" in str(e.value)
+    assert "Can't reach the FinChat service at http://api:8000" in str(e.value)
     assert "Max retries" not in str(e.value) and "NewConnectionError" not in str(e.value)
 
 

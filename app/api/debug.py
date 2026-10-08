@@ -1,4 +1,4 @@
-"""Debug endpoints. Hidden (404) unless `api.debug_endpoints` is true or the DOCQA_DEBUG env var is set:
+"""Debug endpoints. Hidden (404) unless `api.debug_endpoints` is true or the FINCHAT_DEBUG env var is set:
 they have no auth, and /debug/answer_doc spends LLM quota. The real entry point is POST /query.
 
 POST /debug/retrieve    what retrieval returns for a question (no LLM involved)

@@ -1,4 +1,4 @@
-"""Thin client for the DocQA API. Every failure becomes an `ApiError` carrying a message that is safe to show
+"""Thin client for the FinChat API. Every failure becomes an `ApiError` carrying a message safe to show
 to a user (no stack traces, no URLs of internals beyond the base URL)."""
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class ApiError(Exception):
 def error_message(status: int, body: Any) -> str:
     """The message for an HTTP error. 4xx carry a readable `detail` from the API; 5xx never show internals."""
     if status >= 500:
-        return "The DocQA service ran into a problem. Please try again in a moment."
+        return "The FinChat service ran into a problem. Please try again in a moment."
     detail = body.get("detail") if isinstance(body, dict) else None
     if isinstance(detail, str) and detail.strip():
         return detail.strip()
@@ -39,7 +39,7 @@ def error_message(status: int, body: Any) -> str:
 
 class ApiClient:
     def __init__(self, base_url: str | None = None, session: requests.Session | None = None):
-        self.base_url = (base_url or os.environ.get("DOCQA_API_URL") or DEFAULT_URL).rstrip("/")
+        self.base_url = (base_url or os.environ.get("FINCHAT_API_URL") or DEFAULT_URL).rstrip("/")
         self.session = session or requests.Session()
 
     def _call(self, method: str, path: str, *, timeout: float, raw: bool = False, **kwargs: Any) -> Any:
@@ -50,10 +50,10 @@ class ApiClient:
             raise ApiError("The service is taking too long to respond. Please try again.") from exc
         except requests.ConnectionError as exc:
             raise ApiError(
-                f"Can't reach the DocQA service at {self.base_url}. Is it running?", unreachable=True
+                f"Can't reach the FinChat service at {self.base_url}. Is it running?", unreachable=True
             ) from exc
         except requests.RequestException as exc:
-            raise ApiError("Something went wrong talking to the DocQA service.") from exc
+            raise ApiError("Something went wrong talking to the FinChat service.") from exc
         if raw and resp.status_code < 400:
             return resp
         try:

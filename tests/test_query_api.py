@@ -308,7 +308,7 @@ def test_debug_endpoints_are_hidden_unless_the_flag_is_on(settings, monkeypatch,
 def test_debug_env_var_turns_the_flag_on(monkeypatch):
     from app.config import load_settings
 
-    monkeypatch.delenv("DOCQA_DEBUG", raising=False)
+    monkeypatch.delenv("FINCHAT_DEBUG", raising=False)
     assert load_settings().api.debug_endpoints is False
-    monkeypatch.setenv("DOCQA_DEBUG", "1")
+    monkeypatch.setenv("FINCHAT_DEBUG", "1")
     assert load_settings().api.debug_endpoints is True
