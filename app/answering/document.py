@@ -19,6 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
 
+from app.answering.highlight import highlight_terms
 from app.answering.numbers import check_numbers
 from app.config import Settings
 from app.llm.client import LLMClient, LLMError, LLMResponse, Usage
@@ -63,6 +64,8 @@ class Citation:
     chunk_id: str
     score: float
     source_kind: str
+    highlight_terms: list[str] = field(default_factory=list)  # the answer's figures as printed in this chunk
+    primary: bool = False  # the citation holding the most of them: the UI opens it first
 
 
 @dataclass
@@ -154,6 +157,18 @@ def make_citation(source_id: str, chunk: RetrievedChunk, snippet_chars: int) -> 
         score=chunk.score,
         source_kind=chunk.source_kind,
     )
+
+
+def _with_highlights(
+    citations: list[Citation], answer: str, computed: tuple[str, ...], by_id: dict[str, RetrievedChunk]
+) -> list[Citation]:
+    """Fill `highlight_terms` on each citation and mark the one with the most terms as primary."""
+    for c in citations:
+        c.highlight_terms = highlight_terms(answer, list(computed), by_id[c.id].text)
+    best = max(citations, key=lambda c: len(c.highlight_terms), default=None)
+    if best is not None and best.highlight_terms:
+        best.primary = True
+    return citations
 
 
 _SOURCE_TAG = re.compile(r"<(?=\s*/?\s*source\b)", re.IGNORECASE)
@@ -385,7 +400,12 @@ class DocumentAnswerer:
             status=ANSWERED,
             message=parsed.answer.strip(),
             answer=parsed.answer.strip(),
-            citations=[make_citation(s, by_id[s], cfg.answer.snippet_chars) for s in valid],
+            citations=_with_highlights(
+                [make_citation(s, by_id[s], cfg.answer.snippet_chars) for s in valid],
+                parsed.answer,
+                check.computed,
+                by_id,
+            ),
             number_check=check.status,
             number_warning=check.warning,
             unmatched_numbers=list(check.missing),

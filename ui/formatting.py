@@ -97,6 +97,15 @@ def snippet_text(c: dict) -> str:
     return (c.get("snippet") or "").strip() or "(no text available)"
 
 
+def highlight_caption(matches: int, source_kind: str | None) -> str:
+    """One line under the 'Show in PDF' picture."""
+    if matches:
+        return "Rows holding the answer's figures are highlighted."
+    if source_kind == "ocr":
+        return "Scanned page: highlighting not available."
+    return "Figure not found on this page; showing the page."
+
+
 def section_title(section: dict) -> str:
     return DOCUMENT_TITLE if section.get("kind") == "document" else GENERAL_TITLE
 

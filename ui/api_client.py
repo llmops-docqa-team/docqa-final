@@ -42,7 +42,8 @@ class ApiClient:
         self.base_url = (base_url or os.environ.get("DOCQA_API_URL") or DEFAULT_URL).rstrip("/")
         self.session = session or requests.Session()
 
-    def _call(self, method: str, path: str, *, timeout: float, **kwargs: Any) -> Any:
+    def _call(self, method: str, path: str, *, timeout: float, raw: bool = False, **kwargs: Any) -> Any:
+        """The decoded JSON body; with `raw=True` the response itself (for an image)."""
         try:
             resp = self.session.request(method, self.base_url + path, timeout=timeout, **kwargs)
         except requests.Timeout as exc:
@@ -53,6 +54,8 @@ class ApiClient:
             ) from exc
         except requests.RequestException as exc:
             raise ApiError("Something went wrong talking to the DocQA service.") from exc
+        if raw and resp.status_code < 400:
+            return resp
         try:
             body = resp.json()
         except ValueError:
@@ -92,6 +95,27 @@ class ApiClient:
         if not enhance:
             body["enhance"] = False
         return self._call("POST", "/query", timeout=QUERY_TIMEOUT, json=body)
+
+    def page_highlight(
+        self, doc_id: str, pdf_page: int, terms: list[str], context: str = ""
+    ) -> tuple[bytes, int]:
+        """The cited PDF page as a PNG with the rows holding `terms` highlighted, and how many figures were
+        found on it (0: the plain page)."""
+        params: dict[str, Any] = {"term": terms}
+        if context:
+            params["ctx"] = context
+        resp = self._call(
+            "GET",
+            f"/documents/{doc_id}/pages/{int(pdf_page)}/highlight",
+            timeout=QUICK_TIMEOUT,
+            raw=True,
+            params=params,
+        )
+        try:
+            matches = int(resp.headers.get("X-Highlight-Matches", 0))
+        except ValueError:
+            matches = 0
+        return resp.content, matches
 
     def catalog(self) -> dict:
         """Companies, report types and periods of the uploaded documents (GET /catalog)."""
