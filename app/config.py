@@ -76,6 +76,23 @@ class ChunkingConfig(BaseModel):
     overlap_tokens: int = 60
 
 
+class TopicRule(BaseModel):
+    when: list[str]       # words in the question (case-insensitive, matched from the start of a word)
+    headings: list[str]   # a chunk containing one of these (case-insensitive) is favoured
+
+
+class TopicBoostConfig(BaseModel):
+    """Hybrid only. After fusion, a chunk whose text holds a heading that fits the question's topic gets
+    `bonus` x the best fused score added, so the Financial Highlights table can overtake note prose for a
+    "why did finance cost fall" question. Only the best `depth` fused candidates are looked at. The class
+    default is off; config.yaml turns it on."""
+
+    enabled: bool = False
+    bonus: float = 0.15
+    depth: int = 30
+    topics: list[TopicRule] = []
+
+
 class RetrievalConfig(BaseModel):
     fetch_k: int = 8
     top_k: int = 5
@@ -91,6 +108,7 @@ class RetrievalConfig(BaseModel):
     # A table split into pieces: when one piece reaches the model, the rest of that table comes with it
     # (small-to-big), within answer.context_max_tokens. False = off.
     table_siblings: bool = True
+    topic_boost: TopicBoostConfig = TopicBoostConfig()
 
 
 class AnswerConfig(BaseModel):

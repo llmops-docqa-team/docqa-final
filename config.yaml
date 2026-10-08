@@ -58,6 +58,16 @@ retrieval:
   rrf_k: 60
   bm25_keep_top: 1                            # keyword search's #1 always reaches the model (0 = off)
   table_siblings: true                        # a piece of a split table brings the rest of that table
+  topic_boost:                                # hybrid only: after fusion, a chunk holding a heading that fits the question's topic
+    enabled: true                             # gets bonus x the best fused score. Measured with --enhance: trap set R@5 90 -> 100%,
+    bonus: 0.3                                # MRR .60 -> .83; main set and CI gate unchanged. Tuned on 10 trap questions: re-measure
+    depth: 30                                 # if you change the rules. Only the best `depth` fused chunks are checked.
+    topics:                                   # when: words in the question (matched from a word's start); headings: text a chunk holds
+      - when: [dividend]
+        headings: [DIVIDEND]
+      - when: [finance cost, ebitda, pbt, profit before tax, profit after tax, pat, other income, total income]
+        headings: [FINANCIAL HIGHLIGHTS]      # a "why did X fall" rule on FINANCIAL HIGHLIGHTS also fixed T010 but pushed a
+                                              # segment question out of the CI corpus's top 5, so the rule keys on line items instead
 
 answer:
   max_tokens: 1500                            # reasoning tokens count too

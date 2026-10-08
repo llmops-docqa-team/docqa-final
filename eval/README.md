@@ -79,6 +79,7 @@ when a gold page has no `pdf_page`, which is why you should record both).
 ```
 python -m eval.retrieval_eval                 # your corpus: READY docs in data/ whose filenames match docs.yaml
 python -m eval.retrieval_eval --mlflow        # also log params/metrics/git hash/eval-set hash to ./mlruns
+python -m eval.retrieval_eval --enhance       # search as /query does: enhancer text + period scope (default: raw question)
 python -m eval.retrieval_eval --fixture --check   # what CI runs
 mlflow ui --backend-store-uri ./mlruns        # needs: pip install -r requirements-eval.txt
 ```
