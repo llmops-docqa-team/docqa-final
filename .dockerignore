@@ -1,0 +1,7 @@
+.git
+.env
+data
+mlruns
+__pycache__
+.venv
+*.pdf

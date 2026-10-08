@@ -1,0 +1,27 @@
+services:
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DOCQA_GIT_SHA: ${GIT_SHA:-}   # logged on every request; `GIT_SHA=$(git rev-parse --short HEAD) docker compose up`
+    extra_hosts: ["host.docker.internal:host-gateway"]   # reach an Ollama server on the host (Linux needs this)
+    ports: ["8000:8000"]
+    volumes: ["./data:/srv/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  ui:
+    build: .
+    command: streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0
+    environment:
+      DOCQA_API_URL: http://api:8000
+    ports: ["8501:8501"]
+    volumes: ["./data:/srv/data:ro"]   # the Metrics page reads the SQLite request log directly
+    depends_on:
+      api:
+        condition: service_healthy
