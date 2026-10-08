@@ -150,3 +150,101 @@ def test_check_every_figure_must_be_found():
 
 def test_check_looks_only_at_the_given_chunks():
     assert check_numbers("Revenue was 12,563.", []).status == "fail"
+
+
+# ---- spaced period codes and computed figures
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Return on equity for FY 25 was 18.44%.",
+        "Revenue in FY 2026 rose.",
+        "Results for FY 2025-26 and FY25-26.",
+        "In Q3 FY26 and Q 3 and H 1 and H1.",
+    ],
+)
+def test_spaced_period_codes_are_not_figures(answer):
+    assert [q.raw for q in extract_numbers(answer, for_answer=True)] in ([], ["18.44%"])
+
+
+def test_period_code_does_not_swallow_a_real_figure():
+    got = extract_numbers("FY 25 revenue was 3,415.82 and FY 2026 EBITDA 1,162.17", for_answer=True)
+    assert [q.raw for q in got] == ["3,415.82", "1,162.17"]
+
+
+def test_check_spaced_fy_code_passes():
+    c = check_numbers("ROE for FY 25 was 18.44%.", ["Return on equity 18.44%"])
+    assert c.status == "pass" and c.missing == () and c.computed == ()
+
+
+EBITDA_CHUNK = "| EBITDA (₹ Mn) | FY2024 | FY2025 |\n| EBITDA | 615.30 | 1,097.36 |"
+
+
+def test_check_difference_passes_as_computed():
+    c = check_numbers("EBITDA increased by ₹482.06 million.", [EBITDA_CHUNK])
+    assert c.status == "pass" and not c.warning and c.missing == ()
+    assert c.computed == ("482.06 = 1097.36 − 615.30",)
+
+
+def test_check_difference_works_in_either_order():
+    chunk = "| Project Engineering | 200.28 | 75.40 |"
+    assert check_numbers("A decline of 124.88.", [chunk]).computed == ("124.88 = 200.28 − 75.40",)
+
+
+def test_check_wrong_difference_still_fails():
+    c = check_numbers("EBITDA increased by ₹482.60 million.", [EBITDA_CHUNK])
+    assert c.status == "fail" and c.missing == ("482.60 million",) and c.computed == ()
+
+
+def test_check_rounded_share_passes_as_computed():
+    chunk = "| Project Engineering | 75.40 |\n| Revenue from operations | 3,415.82 |"
+    c = check_numbers("Project Engineering is about 2.2% of revenue.", [chunk])
+    assert c.status == "pass" and c.computed == ("2.2 = 75.40 / 3415.82 × 100",)
+    assert check_numbers("It is about 2.3% of revenue.", [chunk]).status == "fail"
+
+
+def test_check_growth_and_decline_rates_pass_as_computed():
+    chunk = "| Project Engineering | 200.28 | 75.40 |"
+    assert check_numbers("down about 62.4%", [chunk]).computed == ("62.4 = (200.28 − 75.40) / 200.28 × 100",)
+    assert check_numbers("up about 166%", [chunk]).status == "pass"  # 200.28 over 75.40
+    assert check_numbers("down about 62%", [chunk]).status == "pass"  # rounded to its own decimals
+    assert check_numbers("down about 63%", [chunk]).status == "fail"
+
+
+def test_check_only_percentages_use_ratios():
+    chunk = "| A | 75.40 |\n| B | 3,415.82 |"
+    assert check_numbers("A is 0.02 of B", [chunk]).status == "fail"
+
+
+def test_check_found_figures_are_not_labelled_computed():
+    c = check_numbers("EBITDA was 1,097.36 and rose by 482.06.", [EBITDA_CHUNK])
+    assert c.status == "pass" and c.computed == ("482.06 = 1097.36 − 615.30",)
+
+
+def test_check_mixed_answer_fails_only_for_the_unexplained_figure():
+    c = check_numbers("EBITDA rose by 482.06 to 1,097.36, with 999 new sites.", [EBITDA_CHUNK])
+    assert c.status == "fail" and c.missing == ("999",) and len(c.computed) == 1
+
+
+def test_check_years_are_not_operands():
+    # 2025 - 1,500 = 525 would explain the claim if the bare year counted as a figure
+    assert check_numbers("A change of 525.", ["Revenue 1,500 in 2025"]).status == "fail"
+
+
+def test_check_computed_pass_is_skipped_for_a_huge_pool(monkeypatch):
+    import app.answering.numbers as n
+
+    assert check_numbers("EBITDA increased by 482.06.", [EBITDA_CHUNK]).status == "pass"
+    monkeypatch.setattr(n, "MAX_COMPUTED_POOL", 1)
+    assert check_numbers("EBITDA increased by 482.06.", [EBITDA_CHUNK]).status == "fail"
+
+
+def test_check_ratios_are_skipped_for_a_large_pool(monkeypatch):
+    import app.answering.numbers as n
+
+    chunk = "| Project Engineering | 200.28 | 75.40 |"
+    assert check_numbers("down about 62.4%", [chunk]).status == "pass"
+    monkeypatch.setattr(n, "MAX_RATIO_POOL", 1)
+    assert check_numbers("down about 62.4%", [chunk]).status == "fail"
+    assert check_numbers("down by 124.88", [chunk]).status == "pass"  # differences still tried

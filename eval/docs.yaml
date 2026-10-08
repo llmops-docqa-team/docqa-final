@@ -4,6 +4,12 @@ docs:
   report_a:
     filename: EIG AR FY25.pdf
     note: Ellenbarrie Industrial Gases FY25 annual report, text layer + financial tables (text + table slices).
+  report_fy24:
+    filename: EIG AR FY24.pdf
+    note: Ellenbarrie FY24 annual report (trap set). Printed page labels equal the PDF page.
+  report_fy26:
+    filename: EIG AR FY26.pdf
+    note: Ellenbarrie FY26 annual report (trap set). Printed page label = PDF page - 2.
   report_b:
     filename: TODO_report_b.pdf
     note: Scanned report, or 40-60 pages rasterised into an image-only PDF (scanned slice).

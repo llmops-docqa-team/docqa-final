@@ -79,6 +79,7 @@ class DocAnswer:
     number_check: str = "na"  # pass | fail | na
     number_warning: bool = False
     unmatched_numbers: list[str] = field(default_factory=list)
+    computed_numbers: list[str] = field(default_factory=list)  # figures derived from cited ones
     citations_valid: bool | None = None  # None when the LLM was never asked
     dropped_citations: list[str] = field(default_factory=list)
     top_score: float | None = None
@@ -388,6 +389,7 @@ class DocumentAnswerer:
             number_check=check.status,
             number_warning=check.warning,
             unmatched_numbers=list(check.missing),
+            computed_numbers=list(check.computed),
             citations_valid=not dropped,
             dropped_citations=dropped,
             cited_texts={c.id: c.text for c in cited_chunks},

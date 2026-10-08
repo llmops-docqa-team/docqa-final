@@ -8,6 +8,8 @@ python -m eval.validate            # report errors and warnings
 python -m eval.validate --strict   # warnings also fail (use before freezing the set)
 ```
 
+`questions_traps.jsonl` is a separate 10-question "trap" set (T001-T010; definition conflicts, IPO total vs company proceeds, computed figures) on the FY24/FY25/FY26 reports. Retrieval only (free): `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl`; full run (uses Groq quota): `python -m eval.run --questions eval/questions_traps.jsonl --run traps-<name>`.
+
 Rows whose id starts with `TODO-` are placeholders; delete them once real rows exist.
 
 ## Targets (~85 rows)

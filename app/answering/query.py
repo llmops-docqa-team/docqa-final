@@ -69,6 +69,7 @@ class Section:
     coverage_note: str | None = None
     warnings: list[str] = field(default_factory=list)
     number_check: str | None = None  # document sections: pass | fail | na
+    computed_numbers: list[str] = field(default_factory=list)  # figures derived from cited ones
     top_score: float | None = None
 
     def to_dict(self) -> dict:
@@ -122,6 +123,7 @@ def _document_section(question: str, da: DocAnswer, docs: list[dict[str, Any]]) 
         coverage_note=da.coverage_note,
         warnings=warnings,
         number_check=da.number_check,
+        computed_numbers=da.computed_numbers,
         top_score=da.top_score,
     )
 

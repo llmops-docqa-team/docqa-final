@@ -403,6 +403,8 @@ def _render_section(section: dict) -> None:
 
     for note in after:
         st.warning(fmt.escape_markdown(note))
+    if status == "answered" and section.get("computed_numbers"):
+        st.caption(fmt.computed_caption(section))
 
 
 def _snippet_html(c: dict) -> str:

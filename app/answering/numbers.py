@@ -11,14 +11,19 @@ whose "(₹ crore)" unit sits in the column header. Signs are ignored (a loss pr
 "loss of 1,234").
 
 Answer-side numbers that are not claims about quantities are skipped: source markers like [S1], bare years,
-fiscal-year ranges (2024-25), dates, "FY25"/"Q3"-style codes, ordinals, list numbering and single digits.
+fiscal-year ranges (2024-25), dates, "FY25"/"FY 25"/"Q3"-style codes, ordinals, list numbering, single digits.
+
+A figure that is not printed can still pass as *computed*: a difference of two figures in the cited text, or
+(for a percentage) a share / growth rate of two of them. Operands are compared as printed (mantissas), the
+difference exactly and the percentage rounded to the decimals the answer itself shows.
 """
 
 from __future__ import annotations
 
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 # Power-of-ten exponent for each scale word (matched case-insensitively).
 SCALES: dict[str, int] = {
@@ -61,7 +66,18 @@ _NOISE = [
         rf"\b{_MONTHS}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+(?:19|20)\d{{2}}\b", re.IGNORECASE
     ),  # March 31, 2025
     re.compile(r"^\s*\d+[.)]\s", re.MULTILINE),  # "1. " list numbering
+    re.compile(
+        r"\b(?:FY|[QH])\s?\d{1,4}(?:\s*[-–—/]\s*\d{2,4})?(?![\d,]|\.\d)", re.IGNORECASE
+    ),  # FY 25, FY 2026, FY25-26, Q 3, Q3 FY26, H 1 (a space slips past the "letter before" rule)
 ]
+
+# Computed figures: skip the pairwise search when the cited text holds more numbers than this, so a huge
+# table cannot slow /query.
+MAX_COMPUTED_POOL = 400
+# Percentages are matched only to their printed decimals, so with many operands some pair always rounds to
+# the claim by chance (measured: 5 of 7 invented percentages "computed" from 399 random numbers). Ratios are
+# therefore tried only on a small pool: a few cited passages, not a whole statement.
+MAX_RATIO_POOL = 120
 
 
 @dataclass(frozen=True)
@@ -80,7 +96,8 @@ class Quantity:
 class NumberCheck:
     status: str  # "pass" | "fail" | "na"
     checked: tuple[str, ...] = ()  # figures from the answer that were looked for
-    missing: tuple[str, ...] = ()  # ... and not found in the cited text
+    missing: tuple[str, ...] = ()  # ... and neither found in the cited text nor computable from it
+    computed: tuple[str, ...] = ()  # figures not printed but derived: "482.06 = 1097.36 − 615.30"
 
     @property
     def warning(self) -> bool:
@@ -164,22 +181,80 @@ def extract_numbers(text: str, *, for_answer: bool = False) -> list[Quantity]:
     return out
 
 
+def _decimals(d: Decimal) -> int:
+    return max(0, -d.as_tuple().exponent)
+
+
+def _fmt(d: Decimal) -> str:
+    return format(d, "f")
+
+
+def _percent_matches(x: Decimal, claim: Decimal) -> bool:
+    return x.quantize(Decimal(1).scaleb(-_decimals(claim)), rounding=ROUND_HALF_UP) == claim
+
+
+def _ratio_partners(ops: list[Decimal], b: Decimal, lo: Decimal, hi: Decimal):
+    """Operands `a` (from the sorted `ops`) with lo*b <= a <= hi*b."""
+    return ops[bisect_left(ops, lo * b) : bisect_right(ops, hi * b)]
+
+
+def _derive(claim: Quantity, ops: list[Decimal]) -> str | None:
+    """How `claim` can be made from two sorted, distinct operands, or None."""
+    c = claim.mantissa
+    if c == 0:
+        return None
+    present = set(ops)
+    for a in ops:  # difference a - b = c (either order: the sign is ignored)
+        if a - c in present:
+            return f"{_fmt(c)} = {_fmt(a)} − {_fmt(a - c)}"
+    if not claim.percent or len(ops) > MAX_RATIO_POOL:
+        return None
+    half = Decimal(5).scaleb(-_decimals(c) - 1)  # rounding to the printed decimals: [c-half, c+half)
+    lo, hi = (c - half) / 100, (c + half) / 100  # share a/b as a fraction
+    for b in ops:
+        for a in _ratio_partners(ops, b, lo, hi):  # share: a / b x 100
+            if _percent_matches(a / b * 100, c):
+                return f"{_fmt(c)} = {_fmt(a)} / {_fmt(b)} × 100"
+        for a in _ratio_partners(ops, b, 1 + lo, 1 + hi):  # growth of a over base b
+            if _percent_matches((a - b) / b * 100, c):
+                return f"{_fmt(c)} = ({_fmt(a)} − {_fmt(b)}) / {_fmt(b)} × 100"
+        for a in _ratio_partners(ops, b, 1 - hi, 1 - lo):  # decline of a from base b
+            if _percent_matches((b - a) / b * 100, c):
+                return f"{_fmt(c)} = ({_fmt(b)} − {_fmt(a)}) / {_fmt(b)} × 100"
+    return None
+
+
 def check_numbers(answer: str, cited_texts: list[str]) -> NumberCheck:
-    """pass: every figure in the answer is in the cited chunks. fail: at least one is not.
-    na: the answer has no checkable figure."""
+    """pass: every figure in the answer is in the cited chunks or computable from two of them. fail: at least
+    one is neither. na: the answer has no checkable figure."""
     claims = extract_numbers(answer, for_answer=True)
     if not claims:
         return NumberCheck("na")
 
     pool: set[Decimal] = set()
+    operands: set[Decimal] = set()
     for text in cited_texts:
         for q in extract_numbers(text):
             pool.add(q.mantissa)
             pool.add(q.value)
+            bare_year = q.raw.isdigit() and len(q.raw) == 4 and 1900 <= int(q.raw) <= 2100
+            if q.mantissa > 0 and not bare_year:
+                operands.add(q.mantissa)
 
-    missing = [c.raw for c in claims if c.mantissa not in pool and c.value not in pool]
+    ops = sorted(operands) if len(operands) <= MAX_COMPUTED_POOL else []
+    missing: list[str] = []
+    computed: list[str] = []
+    for c in claims:
+        if c.mantissa in pool or c.value in pool:
+            continue
+        how = _derive(c, ops) if ops else None
+        if how:
+            computed.append(how)
+        else:
+            missing.append(c.raw)
     return NumberCheck(
         status="fail" if missing else "pass",
         checked=tuple(c.raw for c in claims),
         missing=tuple(missing),
+        computed=tuple(computed),
     )

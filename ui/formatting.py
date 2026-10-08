@@ -111,6 +111,11 @@ def extra_notes(section: dict) -> list[str]:
     return notes
 
 
+def computed_caption(section: dict) -> str:
+    """One line under an answer whose figures were derived (a difference, a share) rather than printed."""
+    return "Computed from cited figures: " + "; ".join(section.get("computed_numbers") or [])
+
+
 def split_notes(section: dict) -> tuple[list[str], list[str]]:
     """(notes to show above the answer, notes to show below it). A "still processing" caveat on an answered
     section goes above, so nobody reads a possibly incomplete answer before the warning."""
