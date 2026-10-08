@@ -286,7 +286,7 @@ def composer(companies: list[dict]) -> str | None:
     names = [c["name"] for c in companies]
     company = picked_company(companies)
     st.session_state.company_widget = company  # redraw the widget with the remembered pick
-    with st.bottom:
+    with getattr(st, "bottom", None) or st._bottom:  # st.bottom is public only in newer Streamlit
         if companies:
             with st.container(key="composer_bar", horizontal=True, vertical_alignment="center"):
                 st.selectbox(
@@ -345,7 +345,7 @@ def _remove(client: ApiClient, doc: dict) -> None:
 # ------------------------------------------------------------------ answers
 
 
-def render_response(response: dict) -> None:
+def render_response(response: dict, key_prefix: str = "") -> None:
     enh = response.get("enhancer")
     if isinstance(enh, dict) and enh.get("enabled") is False:
         st.caption(":material/auto_fix_off: Query enhancer off — searched exactly as typed.")
@@ -367,13 +367,13 @@ def render_response(response: dict) -> None:
             if i:
                 st.divider()
             st.subheader(fmt.section_title(section))
-        _render_section(section)
+        _render_section(section, f"{key_prefix}_s{i}")
     caption = fmt.route_caption(response)
     if caption:
         st.caption(caption)
 
 
-def _render_section(section: dict) -> None:
+def _render_section(section: dict, key_prefix: str = "") -> None:
     status = section.get("status")
     text = fmt.escape_markdown(section.get("answer") or "")
 
@@ -398,11 +398,39 @@ def _render_section(section: dict) -> None:
     for heading, items in fmt.source_groups(section):
         st.caption(heading)
         for n, c in enumerate(items, start=1):
-            with st.expander(f"[{n}] {fmt.citation_label(c)}"):
+            with st.expander(f"[{n}] {fmt.citation_label(c)}", expanded=bool(c.get("primary"))):
                 st.markdown(f'<div class="dq-snippet">{_snippet_html(c)}</div>', unsafe_allow_html=True)
+                _show_in_pdf(c, f"{key_prefix}_{heading}_{n}")
 
     for note in after:
         st.warning(fmt.escape_markdown(note))
+    if status == "answered" and section.get("computed_numbers"):
+        st.caption(fmt.computed_caption(section))
+
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def _highlight_image(doc_id: str, pdf_page: int, terms: tuple[str, ...], context: str) -> tuple[bytes, int]:
+    return get_client().page_highlight(doc_id, pdf_page, list(terms), context)
+
+
+def _show_in_pdf(c: dict, key: str) -> None:
+    """'Show in PDF': the cited page, cropped, with the answer's row highlighted. The picture is fetched
+    (and rendered by the API) only after the click, then kept in the session so reruns do not drop it."""
+    if not c.get("doc_id") or not c.get("pdf_page"):
+        return
+    shown = f"pdf_{key}"
+    if st.button("Show in PDF", key=f"btn_{shown}", icon=":material/picture_as_pdf:"):
+        st.session_state[shown] = True
+    if not st.session_state.get(shown):
+        return
+    try:
+        png, matches = _highlight_image(
+            c["doc_id"], int(c["pdf_page"]), tuple(c.get("highlight_terms") or ()), fmt.snippet_text(c)
+        )
+    except ApiError as exc:
+        st.caption(f"Couldn't load the page: {exc}")
+        return
+    st.image(png, caption=fmt.highlight_caption(matches, c.get("source_kind")), use_container_width=True)
 
 
 def _snippet_html(c: dict) -> str:

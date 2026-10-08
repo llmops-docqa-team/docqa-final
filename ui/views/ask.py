@@ -50,7 +50,7 @@ def answer_card(i: int, message: dict) -> None:
         if message.get("error"):
             st.error(message["error"])
         else:
-            components.render_response(message["response"])
+            components.render_response(message["response"], f"answer_{i}")
             components.feedback_widget(client, message)
 
 

@@ -97,6 +97,15 @@ def snippet_text(c: dict) -> str:
     return (c.get("snippet") or "").strip() or "(no text available)"
 
 
+def highlight_caption(matches: int, source_kind: str | None) -> str:
+    """One line under the 'Show in PDF' picture."""
+    if matches:
+        return "Rows holding the answer's figures are highlighted."
+    if source_kind == "ocr":
+        return "Scanned page: highlighting not available."
+    return "Figure not found on this page; showing the page."
+
+
 def section_title(section: dict) -> str:
     return DOCUMENT_TITLE if section.get("kind") == "document" else GENERAL_TITLE
 
@@ -109,6 +118,11 @@ def extra_notes(section: dict) -> list[str]:
     if cov and cov not in (section.get("answer") or ""):
         notes.append(cov)
     return notes
+
+
+def computed_caption(section: dict) -> str:
+    """One line under an answer whose figures were derived (a difference, a share) rather than printed."""
+    return "Computed from cited figures: " + "; ".join(section.get("computed_numbers") or [])
 
 
 def split_notes(section: dict) -> tuple[list[str], list[str]]:

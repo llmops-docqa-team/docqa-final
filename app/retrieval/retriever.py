@@ -11,16 +11,17 @@ ranked it, so the step 05 score gate means the same thing in every mode.
 from __future__ import annotations
 
 import math
+import re
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 
-from app.config import RetrievalConfig
+from app.config import RetrievalConfig, TopicBoostConfig
 from app.ingestion.chunking import title_from_filename
 from app.ingestion.embedder import Embedder
 from app.ingestion.index import VectorIndex
 from app.ingestion.tokens import estimate_tokens
-from app.retrieval.bm25 import BM25Index, rrf
+from app.retrieval.bm25 import BM25Index, rrf_scored
 from app.storage import documents as st
 from app.storage.documents import DocumentStore
 
@@ -98,6 +99,31 @@ def _keep_lexical_top(order: list[str], lexical: list[str], n: int, limit: int) 
     rest = [cid for cid in order if cid not in missing]
     slot = max(0, limit - len(missing))
     return rest[:slot] + missing + rest[slot:]
+
+
+def topic_headings(question: str, cfg: TopicBoostConfig) -> list[str]:
+    """Lower-cased headings that fit the question's topic (see `retrieval.topic_boost.topics`)."""
+    q = question.lower()
+    found: list[str] = []
+    for rule in cfg.topics:
+        if any(re.search(rf"(?<![a-z0-9]){re.escape(w.lower())}", q) for w in rule.when):
+            found += [h.lower() for h in rule.headings]
+    return list(dict.fromkeys(found))
+
+
+def apply_topic_boost(
+    fused: list[tuple[str, float]], text_of: Callable[[str], str], headings: list[str], cfg: TopicBoostConfig
+) -> list[tuple[str, float]]:
+    """`fused` (best first) with `cfg.bonus` x the best score added to each of the first `cfg.depth` chunks
+    whose text holds one of `headings`, then re-sorted (stable). No model, no I/O: O(depth)."""
+    if not fused or not headings:
+        return fused
+    bonus = cfg.bonus * fused[0][1]
+    boosted = [
+        (cid, score + bonus if i < cfg.depth and any(h in text_of(cid) for h in headings) else score)
+        for i, (cid, score) in enumerate(fused)
+    ]
+    return sorted(boosted, key=lambda x: -x[1])
 
 
 def _table_key(text: str) -> str:
@@ -200,9 +226,15 @@ class Retriever:
             dense: dict[str, RetrievedChunk] = {}
         else:
             dense = {c.id: c for c in self._dense(vector, pool, doc_ids)}
-            order = rrf(
+            fused = rrf_scored(
                 [(1.0, list(dense)), (self.cfg.bm25_weight, [cid for cid, _ in lexical])], self.cfg.rrf_k
             )
+            boost = self.cfg.topic_boost
+            if boost.enabled:
+                fused = apply_topic_boost(
+                    fused, self._bm25_index().text_lower, topic_headings(question, boost), boost
+                )
+            order = [cid for cid, _ in fused]
             order = _keep_lexical_top(order, [cid for cid, _ in lexical], self.cfg.bm25_keep_top,
                                       min(k, self.cfg.top_k))[:k]
         by_id = {**dense, **self._by_id([cid for cid in order if cid not in dense], vector)}

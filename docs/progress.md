@@ -630,3 +630,60 @@ python scripts/judge_recent.py --last 20        # also puts judge scores on the 
 - Measured with Fortis + HPCL loaded, 15 statement questions (incl. FY2024 figures, consolidated, EPS, total assets): **14/15 figures reach the model**. EIG eval unchanged (R@1 72.2%, R@5 98.6%, MRR 0.819); CI gate passes (MRR 0.676).
 - Remaining miss: HPCL standalone total equity (#12). With labels restored, Fortis's balance-sheet rows now outrank HPCL's for a question naming HPCL (cross-report bleed).
 - `INGEST_VERSION` 4 → 5: re-upload documents. 717 tests pass (4 new).
+
+## Improvements 01: trap set + number check (2026-10-08)
+
+- **Trap eval set**: `eval/questions_traps.jsonl` (T001-T010, DOCUMENT, answerable; definition conflicts, IPO total vs company proceeds, computed figures, a negative fact, a crore-vs-million trap) with its own file, so the 117-question set and its run files are untouched. `eval/docs.yaml` gains `report_fy24` and `report_fy26` (`report_a` stays FY25). Printed labels: FY26 = PDF page - 2 (checked on 34, 164, 228, 229, 231, 235), FY24/FY25 as in the existing set. Try it: `python -m eval.validate eval/questions_traps.jsonl`, `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl` (free); the paid run (`eval.run --run traps-<name>`) was not done.
+- **Gold-page notes**: "EBITDA 1,162.17" for FY26 is not printed anywhere in the PDF (it is PBT less other income plus finance cost and D&A, which sit on PDF p.34), so T001/T002 are "computed figure" traps. T009: the Corporate Information page (PDF p.2, "Dividend Declared: None") is left out of the gold pages because it has no printed page label to confirm; p.36 and p.86 are kept.
+- **Number check** (`app/answering/numbers.py`): `FY 25`, `FY 2026`, `FY25-26`, `Q3 FY26`, `Q 3`, `H 1` are period codes, not figures. A figure missing after the exact lookup now passes as **computed** when it is a difference of two cited figures (exact, either order) or, for a percentage, a share `a/b*100` or growth/decline `(a-b)/b*100` rounded to its own printed decimals. Operands are the mantissas as printed (bare years excluded). `NumberCheck.computed` carries e.g. `"482.06 = 1097.36 − 615.30"`; it is also in the API section (`computed_numbers`) and the UI shows "Computed from cited figures: ..." under the answer. A wrong figure (`482.60`) still fails.
+- **Caps**: no computed pass above 400 distinct numbers in the cited text (spec). Added a tighter one for ratios, `MAX_RATIO_POOL = 120`: percentages match only to their printed decimals, so with ~400 random numbers 5 of 7 invented percentages "computed" by chance. Differences are exact and keep the 400 cap. Search is sorted + bisect, about 4 ms for a 400-number pool.
+- **Open**: prompt 02 can reuse the operands (they are in the `computed` strings; parsing them back is a regex away, or return them structured if that gets awkward). `tests/test_ui_smoke.py` has 20 failures that also occur without my changes (checked with the changes stashed), and `ruff format --check ui/formatting.py` already flagged the file before; neither was touched.
+
+**Tests**: `tests/test_numbers.py` + `tests/test_eval_tooling.py` (+ document/query/answer API tests) 148 passed; `ruff check` clean on changed files.
+
+## Improvements 02: show in PDF (2026-10-08)
+
+- **What it does**: each citation expander has a **Show in PDF** button. Click it and the cited page appears, cropped around the answer's figures, with the whole printed row shaded yellow (so the label "Finance Cost" is covered) and the figure itself boxed in red. Free (PyMuPDF only, no LLM) and nothing is rendered on the `/query` path.
+- **Answer time** (`app/answering/highlight.py::highlight_terms`, called from `DocumentAnswerer`): every citation gets `highlight_terms`, the answer's figures that occur in *that* chunk, written as the chunk prints them (`94.90`, `1,097.36`). A computed figure (prompt 01) contributes its operands instead (parsed from the `computed` string, the "× 100" dropped). The citation with the most terms gets `primary: true`; the UI opens its expander first. Both fields are in the API's citation objects. Plain integers under 3 digits are skipped (they would match half the page).
+- **Click time**: `GET /documents/{doc_id}/pages/{pdf_page}/highlight?term=…&ctx=…` returns `image/png` with `X-Highlight-Matches`. The file is the stored upload of the document, never a path from the request. 404 unknown document, 422 page out of range or a bad term (≤ 12 terms, ≤ 32 chars, `[0-9A-Za-z,.%()-]`). `lru_cache` of 64 renders; the UI also caches with `st.cache_data`. `ctx` (the citation snippet) breaks ties when a figure occurs in several rows: the row sharing the most words with the chunk wins.
+- **Details**: a hit counts only if it is a whole printed word (`94.90` does not match inside `1,094.90`). The PDF is opened per request and the marks are drawn on the in-memory page; it is never saved.
+- **Captions**: "Rows holding the answer's figures are highlighted." / "Figure not found on this page; showing the page." / "Scanned page: highlighting not available." (the last when the citation's `source_kind` is `ocr`).
+- **Measured** on the real EIG FY26 report (PDF p.34, `94.90`): 43 ms for the render in-process (70 KB PNG), including opening the PDF. Not measured through a browser.
+- **Open (TODO)**: OCR word boxes for scanned pages (Tesseract `image_to_data`), so the highlight also works there. Still no highlighting for general-knowledge answers (no citations).
+- **Tests**: `tests/test_highlight.py` (12): render finds one match and crops, unknown term gives the plain page, whole-word matching, tie-break by row words, page out of range, terms (as printed, absent, computed operands), primary citation, endpoint 200/404/422, client + captions. With `test_answer_document`, `test_query_api`, `test_answer_api`, `test_ui_helpers`, `test_ingestion_pipeline`, `test_numbers`: 202 passed. `ruff check app ui tests/test_highlight.py` clean. `tests/test_ui_smoke.py` still has the same 20 failures as before this change (see Improvements 01); the new button is not covered by a UI test.
+
+## Improvements 03: retrieval synonyms and topic boost (2026-10-08)
+
+**Diagnosis first** (free, `diag` on the real FY24/25/26 index, using the enhancer's `search_query` and its document scope, as `/query` does):
+- **T010** (finance cost): the Financial Highlights table row is in a short table chunk (`34:t0`) that says "March 31 2026", never "FY2026". Raw question: BM25 rank 19 (scoped), dense rank > 50. Enhanced question (period spellings `FY26; FY 2025-26; FY25; FY 2024-25` appended): **not in either top 50**. The appended period words and the note pages that also say "finance cost(s)" outscore a 12-line table. This is the one real failure.
+- **T009** (dividend): on the current index the Board-report page (p.86) is BM25 #1 and p.36 is in the top 8 (dense rank 3 raw, 14 with the enhanced text). The live-test abstention is not reproduced here; with the boost, p.36 moves 6th -> 3rd. Nothing broken, a small gain.
+- **T004** (equity driver): enhanced, p.228 (the IPO/equity discussion) is #1; the raw question found the balance sheet (p.164) at BM25 #2. Nothing to fix in retrieval.
+- Side effect found: `eval.retrieval_eval` searched with the raw question and all documents, which is not what `/query` does (enhancer text, period scope). New flag **`--enhance`** uses the enhancer's search text and scope. All "enhanced" numbers below use it.
+
+**Changes**
+- **Synonyms** (`enhancer.SYNONYMS`, 7 -> 13 entries): finance cost, other income, net worth, capital expenditure, employee cost, tax expense. Each was added alone and measured: `borrowings` -> debt; loans cost the main set 0.05 MRR and one hit, `dividend` -> ... pushed T009 down (MRR .575 -> .525), so both are **left out** (comment in the code). The ones kept are neutral on the sets (most have no question there) and fix a real mismatch: BM25 does not stem, so "finance cost" never matched the reports' "Finance costs".
+- **Topic boost** (`retrieval.topic_boost`, `retriever.apply_topic_boost`; **on**): after fusion, a chunk whose text holds a heading that fits the question gets `bonus x best fused score`; only the best `depth` (30) are checked, using text the BM25 index already holds (no I/O). Rules in `config.yaml`: "dividend" -> DIVIDEND; finance cost / EBITDA / PBT / PAT / other income / total income -> FINANCIAL HIGHLIGHTS. `bonus` 0.3.
+- **Tried and dropped**: a "why / reason / drove / declined" rule on FINANCIAL HIGHLIGHTS / PERFORMANCE REVIEW fixed T010 too (trap R@5 100%, MRR .70) but pushed CI-29 ("What drove the Transformers segment's performance") out of the fixture's top 5 and failed the CI gate (R@5 95.9 vs 100, limit 3 pts) at bonuses 0.15-0.3. Keying on line items instead gives the better numbers below and leaves the gate alone. A broader rule with "Statement of Profit and Loss" also hurt.
+
+**Before / after** (R@5 / MRR; trap = 10 questions, main = 72 answerable on the three EIG reports):
+
+| | before | after |
+|---|---|---|
+| trap, enhanced (`--enhance`) | 90% / 0.575 | **100% / 0.825** |
+| main, enhanced | 90.3% / 0.625 | 90.3% / 0.613 (synonyms; the boost changes nothing here) |
+| trap, raw question | 80% / 0.293 | 80% / 0.464 |
+| main, raw question | 90.3% / 0.593 | 90.3% / 0.582 |
+| CI gate (`--fixture --check`) | pass | pass (R@5 98.0, MRR 0.676; baseline untouched) |
+
+T010: finance-cost table not in the top 50 -> **#1**.
+
+**Caveats**: the boost rules were tuned on 10 trap questions, four of which mention EBITDA/PBT/finance cost, so the trap gain is partly in-sample. The main set has few "explain" questions. The small main-set MRR dip (-0.012) comes from the synonyms in enhanced mode and from the boost on a couple of raw questions; Recall@5 does not move. Not run: the paid `/query` re-ask of T009/T010.
+
+**Try it**: `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl --enhance` (stop the API first). Switch the boost off with `retrieval.topic_boost.enabled: false`. **Tests**: `test_retrieval.py` (+3: heading moves up with the flag on, unchanged off, word-start matching, stable/depth-limited boost), `test_catalog.py` (+1: aliases only when the phrase is asked); with `test_bm25`, `test_retrieval_eval`, `test_query_api`, `test_answer_document`: 145 passed. `ruff check` clean on changed files.
+
+## Step 04 re-check (2026-10-08)
+
+Prompt 04 was run again on this branch. Everything it asks for already exists (retriever, `/debug/retrieve`, `eval.retrieval_eval` with MLflow flag, fixture corpus + `eval/baselines/ci_retrieval.json`, CI gate), so no code was rebuilt. Checked: `test_retrieval.py` + `test_retrieval_eval.py` 44 passed, `ruff check` clean, `python -m eval.retrieval_eval --fixture --check` PASS (R@5 98.0 vs 100.0 baseline, MRR 0.676 vs 0.699).
+- **Fixed: stale CI model cache.** `ci.yml` cached `data/models` under a fastembed key, but the default backend is now model2vec, which downloads to `~/.cache/huggingface`, so the cache did nothing. It now caches both paths under a new key. Not yet confirmed on GitHub Actions itself.
+- On Windows a failing ingest can crash the logger with `UnicodeEncodeError` (cp1252 console) and hide the real error; `PYTHONUTF8=1` shows it. Left as is.
+- `README.md` line 119 still says the embeddings are bge-small; the default is now `minishlab/potion-retrieval-32M`.

@@ -51,6 +51,9 @@ ABBREVIATIONS: dict[str, str] = {
 }
 
 # Phrases the reports use for the same line item (Indian annual reports vs IFRS results vs presentations).
+# Every added word also dilutes a keyword query, so an entry stays only if it did not lower retrieval
+# (eval.retrieval_eval --enhance). Measured and left out: "borrowings" -> debt; loans (main set MRR -0.05) and
+# "dividend" -> dividend declared; ... (T009 ranked lower).
 SYNONYMS: dict[str, str] = {
     "profit after tax": "net profit; profit for the period",
     "net profit": "profit after tax; profit for the period",
@@ -59,6 +62,12 @@ SYNONYMS: dict[str, str] = {
     "operating margin": "EBIT margin; operating profit",
     "total equity": "shareholders' funds; net worth",
     "cash flow from operations": "net cash generated from operating activities",
+    "finance cost": "finance costs; interest expense; borrowing costs",
+    "other income": "interest income; treasury income",
+    "net worth": "total equity; shareholders' funds",
+    "capital expenditure": "additions to property, plant and equipment",
+    "employee cost": "employee benefits expense; staff cost",
+    "tax expense": "income tax; current tax; deferred tax",
 }
 
 _WORD = re.compile(r"[a-z0-9/&]+")

@@ -134,3 +134,9 @@ def test_main_exit_codes_and_summary(tmp_path, capsys):
     assert main([str(warn_only)]) == 0
     assert main([str(warn_only), "--strict"]) == 1
     assert main([str(write(tmp_path, ["{bad"]))]) == 1
+
+
+def test_trap_questions_validate():
+    rep = validate(DEFAULT_QUESTIONS.parent / "questions_traps.jsonl", DEFAULT_DOCS)
+    assert rep.ok and not rep.warnings, (rep.errors, rep.warnings)
+    assert [r.id for r in rep.rows] == [f"T{i:03d}" for i in range(1, 11)]

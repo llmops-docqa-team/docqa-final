@@ -92,6 +92,14 @@ def test_enhancer_full_year_keeps_that_years_quarters():
     assert "profit after tax" in e.search_query and "pat -> profit after tax" in e.expansions
 
 
+def test_enhancer_adds_line_item_aliases_only_when_the_phrase_is_asked():
+    q = enhance("What was EIG finance cost in FY26?", LIB).search_query
+    assert "finance costs; interest expense; borrowing costs" in q
+    assert "interest expense" not in enhance("What was EIG revenue in FY26?", LIB).search_query
+    # the abbreviation's long form triggers the alias too (capex -> capital expenditure -> additions to PPE)
+    assert "additions to property, plant and equipment" in enhance("EIG capex in FY26", LIB).search_query
+
+
 def test_enhancer_notes_a_missing_period_and_does_not_narrow_to_nothing():
     e = enhance("TCS revenue in Q3FY26", LIB)
     assert e.doc_ids == ["d0", "d1", "d2"]  # all of TCS

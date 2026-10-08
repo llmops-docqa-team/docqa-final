@@ -5,11 +5,11 @@ import math
 
 import pytest
 
-from app.config import RetrievalConfig
+from app.config import RetrievalConfig, TopicBoostConfig, TopicRule
 from app.ingestion.chunking import Chunk
 from app.ingestion.embedder import BGE_QUERY_PREFIX, FastEmbedder
 from app.ingestion.index import VectorIndex
-from app.retrieval.retriever import Retriever
+from app.retrieval.retriever import Retriever, apply_topic_boost, topic_headings
 from app.storage import documents as st
 from app.storage.db import init_db
 from app.storage.documents import DocumentStore
@@ -364,3 +364,45 @@ def test_fit_context_inserts_siblings_after_their_piece_within_the_budget(env):
     assert [c.id for c in fit_context(chunks, 5000, None)] == [c.id for c in chunks]  # off
     one = fit_context(chunks, 1, r.table_siblings)  # over budget: the best passage is still kept
     assert [c.id for c in one] == ["d:5:1"]
+
+# ---- topic boost ---------------------------------------------------------------------------------------
+HIGHLIGHTS_RULE = TopicRule(when=["finance cost", "ebitda"], headings=["FINANCIAL HIGHLIGHTS"])
+
+
+def _boost(enabled: bool = True, **kw) -> TopicBoostConfig:
+    return TopicBoostConfig(enabled=enabled, bonus=0.3, topics=[HIGHLIGHTS_RULE], **kw)
+
+
+def _note_beats_highlights(store, index):
+    add_doc(store, index, "a", st.READY, [
+        (_chunk("a", 1, 0, "ebitda ebitda ebitda ebitda note on ebitda"), [1.0, 0.0]),
+        (_chunk("a", 2, 0, "FINANCIAL HIGHLIGHTS ebitda 1162.17", kind="table"), [0.8, 0.6]),
+        *[(_chunk("a", 10 + i, 0, f"chairman letter board meeting {i}"), [0.0, 1.0]) for i in range(3)],
+    ])
+
+
+def test_topic_boost_moves_the_chunk_with_the_matching_heading_up(env):
+    store, index = env
+    _note_beats_highlights(store, index)
+    off, _ = make_retriever(store, index, mode="hybrid", bm25_keep_top=0, topic_boost=_boost(enabled=False))
+    on, _ = make_retriever(store, index, mode="hybrid", bm25_keep_top=0, topic_boost=_boost())
+    assert [c.id for c in off.retrieve("what was ebitda").chunks][:2] == ["a:1:0", "a:2:0"]
+    assert [c.id for c in on.retrieve("what was ebitda").chunks][:2] == ["a:2:0", "a:1:0"]
+    # a question on another topic is not touched
+    assert on.retrieve("board meeting letter").chunks[0].id.startswith("a:1")
+
+
+def test_topic_headings_match_from_the_start_of_a_word_and_ignore_case():
+    cfg = _boost()
+    assert topic_headings("Why did Finance Costs fall?", cfg) == ["financial highlights"]
+    assert topic_headings("what is the outfinance cost", cfg) == []  # not at a word start
+    assert topic_headings("what was revenue", cfg) == []
+
+
+def test_apply_topic_boost_is_stable_and_limited_to_depth():
+    fused = [("x", 1.0), ("y", 0.9), ("z", 0.8)]
+    texts = {"x": "a", "y": "highlights", "z": "highlights"}
+    cfg = TopicBoostConfig(enabled=True, bonus=0.2, depth=2, topics=[])
+    out = apply_topic_boost(fused, texts.get, ["highlights"], cfg)
+    assert [c for c, _ in out] == ["y", "x", "z"]  # y gets +0.2; z is beyond depth 2
+    assert apply_topic_boost(fused, texts.get, [], cfg) == fused  # no matching topic: unchanged

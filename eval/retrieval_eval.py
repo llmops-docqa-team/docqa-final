@@ -31,6 +31,7 @@ from app.ingestion.embedder import Embedder, embedder_from_settings
 from app.ingestion.index import VectorIndex
 from app.ingestion.worker import IngestionWorker, upload_path
 from app.retrieval.retriever import Retriever
+from app.routing.enhancer import enhance
 from app.storage import documents as st
 from app.storage.db import init_db
 from app.storage.documents import DocumentStore
@@ -107,7 +108,12 @@ def resolve_docs(store: DocumentStore, docs_map: dict[str, str]) -> tuple[dict[s
 
 # ---- evaluation ----------------------------------------------------------------------------------------
 def evaluate(
-    rows: list[EvalRow], retriever: Retriever, doc_id_by_key: dict[str, str], *, top_k: int
+    rows: list[EvalRow],
+    retriever: Retriever,
+    doc_id_by_key: dict[str, str],
+    *,
+    top_k: int,
+    use_enhancer: bool = False,
 ) -> Evaluation:
     key_by_id = {v: k for k, v in doc_id_by_key.items()}
     ready_ids = list(doc_id_by_key.values())
@@ -128,8 +134,13 @@ def evaluate(
             ev.skipped.append({"id": row.id, "reason": "no READY documents"})
             continue
 
+        query, scope = row.question, ready_ids
+        if use_enhancer:  # what /query does: the enhancer's search text, limited to the period's reports
+            e = enhance(row.question, retriever.store.list())
+            query = e.search_query
+            scope = [d for d in ready_ids if e.doc_ids is None or d in e.doc_ids] or ready_ids
         t0 = time.perf_counter()
-        res = retriever.retrieve(row.question, top_k, ready_ids)
+        res = retriever.retrieve(query, top_k, scope)
         ev.latencies_ms.append((time.perf_counter() - t0) * 1000)
         if res.top_score is not None:
             (ev.answerable_scores if row.answerable else ev.unanswerable_scores).append(res.top_score)
@@ -321,6 +332,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--check", action="store_true", help="compare with the baseline; exit 1 on regression")
     ap.add_argument("--write-baseline", action="store_true", help="rewrite eval/baselines/ci_retrieval.json")
     ap.add_argument("--tolerance", type=float, help=f"allowed Recall@5 drop (default {DEFAULT_TOLERANCE})")
+    ap.add_argument(
+        "--enhance",
+        action="store_true",
+        help="search with the enhancer's text and document scope, as /query does (default: the raw question)",
+    )
     ap.add_argument("--mlflow", action="store_true", help="log to MLflow (needs requirements-eval.txt)")
     ap.add_argument("--run-name")
     args = ap.parse_args(argv)
@@ -349,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
         doc_ids, problems = resolve_docs(store, docs_map)
         for key, problem in problems.items():
             print(f"note: {key}: {problem}; its questions are skipped")
-        ev = evaluate(rows, retriever, doc_ids, top_k=top_k)
+        ev = evaluate(rows, retriever, doc_ids, top_k=top_k, use_enhancer=args.enhance)
         if not ev.results:
             raise EvalSetupError(
                 "no answerable questions could be scored (no READY documents match the question set; "

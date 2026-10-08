@@ -8,6 +8,8 @@ python -m eval.validate            # report errors and warnings
 python -m eval.validate --strict   # warnings also fail (use before freezing the set)
 ```
 
+`questions_traps.jsonl` is a separate 10-question "trap" set (T001-T010; definition conflicts, IPO total vs company proceeds, computed figures) on the FY24/FY25/FY26 reports. Retrieval only (free): `python -m eval.retrieval_eval --questions eval/questions_traps.jsonl`; full run (uses Groq quota): `python -m eval.run --questions eval/questions_traps.jsonl --run traps-<name>`.
+
 Rows whose id starts with `TODO-` are placeholders; delete them once real rows exist.
 
 ## Targets (~85 rows)
@@ -77,6 +79,7 @@ when a gold page has no `pdf_page`, which is why you should record both).
 ```
 python -m eval.retrieval_eval                 # your corpus: READY docs in data/ whose filenames match docs.yaml
 python -m eval.retrieval_eval --mlflow        # also log params/metrics/git hash/eval-set hash to ./mlruns
+python -m eval.retrieval_eval --enhance       # search as /query does: enhancer text + period scope (default: raw question)
 python -m eval.retrieval_eval --fixture --check   # what CI runs
 mlflow ui --backend-store-uri ./mlruns        # needs: pip install -r requirements-eval.txt
 ```

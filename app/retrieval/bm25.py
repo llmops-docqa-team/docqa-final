@@ -40,6 +40,7 @@ class BM25Index:
         if not (len(ids) == len(texts) == len(doc_ids)):
             raise ValueError("ids, texts and doc_ids must have the same length")
         self.ids = list(ids)
+        self._lower = {cid: t.lower() for cid, t in zip(ids, texts, strict=True)}
         self.doc_ids = list(doc_ids)
         self.k1, self.b = k1, b
         counts = [Counter(tokenize(t)) for t in texts]
@@ -49,6 +50,10 @@ class BM25Index:
         for i, c in enumerate(counts):
             for term, tf in c.items():
                 self._postings[term].append((i, tf))
+
+    def text_lower(self, chunk_id: str) -> str:
+        """The lower-cased text a chunk was indexed with ("" if unknown)."""
+        return self._lower.get(chunk_id, "")
 
     def search(self, query: str, doc_ids: Collection[str] | None, n: int) -> list[tuple[str, float]]:
         """Best `n` (chunk id, score) with a positive score, best first, restricted to `doc_ids` if given."""
@@ -73,10 +78,15 @@ class BM25Index:
 
 def rrf(rankings: Sequence[tuple[float, Sequence[str]]], k: int = 60) -> list[str]:
     """Reciprocal-rank fusion of weighted ranked id lists; best first. Ties keep the first list's order."""
+    return [cid for cid, _ in rrf_scored(rankings, k)]
+
+
+def rrf_scored(rankings: Sequence[tuple[float, Sequence[str]]], k: int = 60) -> list[tuple[str, float]]:
+    """`rrf` with each id's fused score."""
     score: dict[str, float] = defaultdict(float)
     first_seen: dict[str, int] = {}
     for weight, ranked in rankings:
         for pos, cid in enumerate(ranked):
             score[cid] += weight / (k + pos + 1)
             first_seen.setdefault(cid, len(first_seen))
-    return sorted(score, key=lambda c: (-score[c], first_seen[c]))
+    return [(c, score[c]) for c in sorted(score, key=lambda c: (-score[c], first_seen[c]))]

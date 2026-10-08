@@ -22,8 +22,12 @@ jobs:
       - name: Cache embedding model
         uses: actions/cache@v4
         with:
-          path: data/models
-          key: fastembed-bge-small-en-v1.5-v1
+          # model2vec (the default embedding backend) downloads to the Hugging Face cache;
+          # data/models only holds the optional fastembed backend's files.
+          path: |
+            ~/.cache/huggingface
+            data/models
+          key: embeddings-potion-retrieval-32M-v1
       - name: Retrieval eval gate
         run: python -m eval.retrieval_eval --fixture --check
       - name: Upload retrieval results

@@ -29,6 +29,9 @@ Source of truth: `docs/design.md` + `docs/addendum.md` (the addendum wins where 
 | 11 | `11-langfuse-loadtest-fallback.md` | Langfuse, load test, Ollama fallback | medium | 08 |
 | 12 | `12-readme-seed-demo.md` | README with numbers, seed script, demo prep | medium | all |
 
+After step 12: [`improvements/`](improvements/README.md) holds four follow-up prompts (trap eval set, number-check
+fixes, "Show in PDF" highlighting, retrieval synonyms/topic boost, answer prompt v2) from the 2026-10-08 live test.
+
 Steps 00 → 03 are strictly in order. After that, 07/08 and 09 can run in parallel if two people are working.
 Step 01's tooling is quick. **Start writing the eval questions on day 1**, in parallel with 02/03.
 

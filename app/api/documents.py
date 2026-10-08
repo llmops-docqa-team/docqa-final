@@ -4,11 +4,14 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
-from pathlib import Path
+from functools import lru_cache
+from pathlib import Path as FsPath
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, HTTPException, Path, Query, Request, Response, UploadFile
 from pydantic import BaseModel
 
+from app.answering.highlight import MAX_TERMS, TERM_PATTERN, PageOutOfRange, render_highlight
 from app.ingestion.validate import UploadRejected, looks_like_pdf, validate_pdf
 from app.ingestion.worker import upload_path
 from app.observability.failure_reasons import classify_upload_rejection
@@ -57,7 +60,7 @@ def _safe_filename(name: str | None) -> str:
     return re.sub(r"[\x00-\x1f]", "", base)[:200] or "document.pdf"
 
 
-def _stream_to_disk(file: UploadFile, dest: Path, max_bytes: int) -> str:
+def _stream_to_disk(file: UploadFile, dest: FsPath, max_bytes: int) -> str:
     """Copy the upload to `dest` while hashing it. Rejects non-PDFs and oversize files early."""
     sha = hashlib.sha256()
     size = 0
@@ -136,6 +139,38 @@ def get_document(doc_id: str, request: Request):
     if doc is None:
         raise HTTPException(404, "Document not found.")
     return doc
+
+
+@lru_cache(maxsize=64)
+def _highlight_png(pdf_path: str, pdf_page: int, terms: tuple[str, ...], context: str) -> tuple[bytes, int]:
+    return render_highlight(pdf_path, pdf_page, list(terms), context=context)
+
+
+@router.get("/{doc_id}/pages/{pdf_page}/highlight")
+def page_highlight(
+    doc_id: str,
+    pdf_page: Annotated[int, Path(ge=1)],
+    request: Request,
+    term: Annotated[list[str], Query(max_length=MAX_TERMS)] = [],  # noqa: B006 (FastAPI reads, never mutates)
+    ctx: Annotated[str, Query(max_length=600)] = "",
+):
+    """PNG of one PDF page, cropped around the rows holding the `term` figures (see answering/highlight.py).
+    The file is the stored upload of `doc_id`; nothing in the request names a path."""
+    doc = request.app.state.store.get(doc_id)
+    pdf = upload_path(request.app.state.settings, doc["id"]) if doc else None
+    if pdf is None or not pdf.is_file():
+        raise HTTPException(404, "Document not found.")
+    if not all(TERM_PATTERN.fullmatch(t) for t in term):
+        raise HTTPException(422, "A term holds only digits, letters and , . % ( ) -, 32 characters at most.")
+    try:
+        png, matches = _highlight_png(str(pdf), pdf_page, tuple(term), ctx)
+    except PageOutOfRange as exc:
+        raise HTTPException(422, f"No such page. {exc}") from exc
+    return Response(
+        png,
+        media_type="image/png",
+        headers={"X-Highlight-Matches": str(matches), "Cache-Control": "private, max-age=3600"},
+    )
 
 
 class DocumentPatch(BaseModel):
